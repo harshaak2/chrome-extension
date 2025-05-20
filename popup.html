@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>QB Popup</title>
+  <style>
+    body {
+      min-width: 250px;
+      padding: 15px;
+      font-family: sans-serif;
+      background-color: black;
+      color: white;
+    }
+    
+    h2 {
+      margin-top: 0;
+      color: white;
+    }
+    
+    .buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.3s ease;
+    }
+    
+    button:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+    
+    button:active {
+      transform: translateY(1px);
+    }
+    
+    #confirm {
+      background-color: #4CAF50;
+      color: white;
+    }
+    
+    #chat {
+      background-color: #2196F3;
+      color: white;
+    }
+    
+    #result {
+      margin-top: 15px;
+      padding: 12px;
+      background-color: #333;
+      color: white;
+      border-radius: 4px;
+      min-height: 40px;
+    }
+  </style>
+  <script src="popup.js" defer></script>
+</head>
+<body>
+  <h2>QB it at your cursor</h2>
+  <div class="buttons">
+    <button id="confirm">Confirm</button>
+    <button id="chat">Chat</button>
+  </div>
+
+  <div id="result">
+    Select text on the page and click "Confirm" to display it here
+  </div>
+</body>
+</html>
