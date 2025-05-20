@@ -69,6 +69,27 @@ function initExtension() {
     });
 }
 
+document.getElementById("copy").addEventListener("click", () => {
+    const result = document.getElementById("result");
+    const text = result.textContent;
+    if (text) {
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.getElementById("copy");
+            const oldText = btn.textContent;
+            btn.textContent = "Copied!";
+            setTimeout(() => {
+                btn.textContent = oldText;
+            }, 2000);
+        }
+        ).catch((err) => {
+            console.error("Failed to copy text: ", err);
+        });
+    }
+    else {
+        console.error("No text to copy");
+    }
+})
+
 // Start the initialization when the script loads
 // If running at the end of body, DOM should be loaded
 // If not, this will still work with setTimeout retry
