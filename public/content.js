@@ -1,3 +1,4 @@
+// content.js
 function getSelectedText() {
     // Handle potential null value for window.getSelection()
     const selection = window.getSelection();

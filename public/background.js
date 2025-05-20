@@ -1,3 +1,4 @@
+// responsible for handling the background tasks of the extension
 chrome.runtime.onInstalled.addListener(() => {
   // syncs the storage across all the tabs
   chrome.storage.sync.get(["cycp"], (key) => {
