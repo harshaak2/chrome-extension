@@ -8,6 +8,60 @@ function Popup() {
   const [result, setResult] = useState('Select text on the page and click "Confirm" to display it here');
   const [isLoading, setIsLoading] = useState(false);
   const [copyButtonText, setCopyButtonText] = useState('Copy');
+  
+  // Listen for messages from the background script
+  useEffect(() => {
+    const handleMessage = async (message) => {
+      if (message.action === "addTextToChat" && message.text) {
+        setResult("Processing text...");
+        setIsLoading(true);
+        
+        try {
+          // Process the text with AI
+          const aiResponse = await getAIResponse(message.text);
+          setResult(aiResponse);
+        } catch (error) {
+          setResult("AI Error: " + error.message);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+    
+    // Add message listener
+    chrome.runtime.onMessage.addListener(handleMessage);
+    
+    // Check if there's any saved text when popup opens
+    chrome.storage.local.get(['selectedText'], (result) => {
+      if (result.selectedText) {
+        handleSelectedText(result.selectedText);
+        // Clear the storage after using it
+        chrome.storage.local.remove(['selectedText']);
+      }
+    });
+    
+    // Cleanup
+    return () => {
+      chrome.runtime.onMessage.removeListener(handleMessage);
+    };
+  }, []);
+  
+  // Helper function to process selected text
+  const handleSelectedText = async (text) => {
+    if (text) {
+      setResult("Processing text...");
+      setIsLoading(true);
+      
+      try {
+        const aiResponse = await getAIResponse(text);
+        setResult(aiResponse);
+      } catch (error) {
+        setResult("AI Error: " + error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
 
   const handleConfirmClick = async () => {
     console.log("Confirm button clicked");
@@ -121,6 +175,8 @@ function Popup() {
     <div className="container w-80 h-120 bg-white rounded-lg">
       <Header />
       <Body />
+      {/* a test button to test handleConfirmClick */}
+      {/* <button onClick={handleConfirmClick}>Test Confirm</button> */}
     </div>
   )
 }
