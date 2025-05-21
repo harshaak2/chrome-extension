@@ -29,6 +29,9 @@ export default function Intro() {
             >
                 Now at your Cursor
             </motion.span>
+            {/* add login link if token not found */}
+            {/* to be redirected to external cp auth link */}
+            {/* cycp token to be stored in local storage */}
         </div>
     );
 }

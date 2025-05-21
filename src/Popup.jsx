@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { getAIResponse } from './api'
 import './Popup.css'
 import Header from './components/Header';
-import Intro from './components/Intro';
+import Body from './components/Body';
 
 function Popup() {
   const [result, setResult] = useState('Select text on the page and click "Confirm" to display it here');
@@ -120,7 +120,7 @@ function Popup() {
   return (
     <div className="container w-80 h-120 bg-white rounded-lg">
       <Header />
-      <Intro />
+      <Body />
     </div>
   )
 }
