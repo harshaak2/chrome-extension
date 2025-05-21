@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { getAIResponse } from './api'
 import './Popup.css'
+import Header from './components/Header';
+import Intro from './components/Intro';
 
 function Popup() {
   const [result, setResult] = useState('Select text on the page and click "Confirm" to display it here');
@@ -90,23 +92,37 @@ function Popup() {
 
   // The getAIResponse function is now imported from api.js
 
-  return (
-    <div className="popup-container">
-      <h2>QB it at your cursor</h2>
-      <div className="buttons">
-        <button id="confirm" onClick={handleConfirmClick} disabled={isLoading}>
-          {isLoading ? 'Processing...' : 'Confirm'}
-        </button>
-        <button id="copy" onClick={handleCopyClick}>
-          {copyButtonText}
-        </button>
-      </div>
+  // return (
+  //     <>
+  //         <div className="popup-container">
+  //         <Header />
+  //             <h2>QB it at your cursor</h2>
+  //             <div className="buttons">
+  //                 <button
+  //                     id="confirm"
+  //                     onClick={handleConfirmClick}
+  //                     disabled={isLoading}
+  //                 >
+  //                     {isLoading ? "Processing..." : "Confirm"}
+  //                 </button>
+  //                 <button id="copy" onClick={handleCopyClick}>
+  //                     {copyButtonText}
+  //                 </button>
+  //             </div>
 
-      <div id="result" className={isLoading ? 'loading' : ''}>
-        {isLoading ? <div className="loader"></div> : result}
-      </div>
+  //             <div id="result" className={isLoading ? "loading" : ""}>
+  //                 {isLoading ? <div className="loader"></div> : result}
+  //             </div>
+  //         </div>
+  //     </>
+  // );
+
+  return (
+    <div className="container w-80 h-120 bg-white rounded-lg">
+      <Header />
+      <Intro />
     </div>
-  );
+  )
 }
 
 export default Popup;
