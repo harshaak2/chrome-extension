@@ -121,6 +121,8 @@ function Popup() {
     <div className="container w-80 h-120 bg-white rounded-lg">
       <Header />
       <Body />
+      {/* a test button to test handleConfirmClick */}
+      {/* <button onClick={handleConfirmClick}>Test Confirm</button> */}
     </div>
   )
 }
