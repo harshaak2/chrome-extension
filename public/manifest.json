@@ -12,7 +12,7 @@
 
   "action": {
     "default_popup": "popup.html",
-    "default_icon": "qb_icon.JPG"
+    "default_icon": "qb_icon.svg"
   },
 
   "content_scripts": [
@@ -32,7 +32,7 @@
   
   "web_accessible_resources": [
     {
-      "resources": ["assets/*"],
+      "resources": ["assets/*", "qb_icon.svg", "cursor-styles.css"],
       "matches": ["<all_urls>"]
     }
   ]

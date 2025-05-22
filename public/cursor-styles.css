@@ -1,0 +1,31 @@
+/* QB Custom Cursor Styles */
+#qb-cursor-overlay {
+  position: fixed;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+  z-index: 2147483647;
+  background-size: contain;
+  background-repeat: no-repeat;
+  transform: translate(-12px, -12px);
+  transition: opacity 0.1s ease;
+}
+
+/* When cursor is enabled, hide default cursors */
+[data-qb-cursor-enabled="true"] {
+  cursor: none !important;
+}
+
+[data-qb-cursor-enabled="true"] * {
+  cursor: none !important;
+}
+
+/* When cursor is temporarily disabled */
+[data-qb-cursor-paused="true"] #qb-cursor-overlay {
+  opacity: 0 !important;
+}
+
+/* Make sure iframe content doesn't interfere */
+iframe, frame, object, embed {
+  pointer-events: auto !important;
+}

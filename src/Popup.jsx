@@ -8,6 +8,7 @@ function Popup() {
   const [result, setResult] = useState('Select text on the page and click "Confirm" to display it here');
   const [isLoading, setIsLoading] = useState(false);
   const [copyButtonText, setCopyButtonText] = useState('Copy');
+  const [cursorEnabled, setCursorEnabled] = useState(false);
 
   const handleConfirmClick = async () => {
     console.log("Confirm button clicked");
@@ -90,6 +91,41 @@ function Popup() {
     }
   };
 
+  // Apply cursor automatically when popup opens
+  useEffect(() => {
+    const enableCustomCursor = async () => {
+      try {
+        // Always enable the cursor
+        setCursorEnabled(true);
+        
+        // Save the state in storage
+        await chrome.storage.sync.set({ cursorEnabled: true });
+        
+        // Get the active tab
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        
+        if (tab && tab.id) {
+          // Make sure the content script is loaded
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ["content.js"],
+          });
+          
+          // Send message to enable cursor
+          chrome.tabs.sendMessage(
+            tab.id,
+            { type: "TOGGLE_CURSOR", enabled: true }
+          );
+        }
+      } catch (error) {
+        console.error("Error enabling cursor:", error);
+      }
+    };
+
+    // Enable custom cursor every time popup opens
+    enableCustomCursor();
+  }, []);
+
   // The getAIResponse function is now imported from api.js
 
   // return (
@@ -121,6 +157,9 @@ function Popup() {
     <div className="container w-80 h-120 bg-white rounded-lg">
       <Header />
       <Body />
+      
+      {/* a test button to test handleConfirmClick */}
+      {/* <button onClick={handleConfirmClick}>Test Confirm</button> */}
     </div>
   )
 }
