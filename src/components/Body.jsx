@@ -118,10 +118,62 @@ export default function Body() {
     };
 
     // handle chat should trigger the prompt api
+    // 1. make a POST request to new session API with user prompt as body - returns session id
+    // 2. make a GET request to the join API which keeps streaming events throughout the session
+    // 3. make a POST request to the prompt API with the session id and the user message and prompt mode
     const handleChat = async () => {
-        console.log(`Context added: ${context}`);
-        // add logic to send the context to the AI
+        // console.log(`Context added: ${context}`);
+        // 1. make a POST request to new session API - returns session id
+        const sessionId = await getSessionId();
+        if (!sessionId) {
+            console.error("Session ID not found");
+            return;
+        }
+        console.log(`Session ID: ${sessionId}`);
+
+        // 2. make a GET request to the join API which keeps streaming events throughout the session
+        
     };
+
+    const getSessionId = async () => {
+        try{
+            setIsLoading(true);
+            // response gives a status code of 201 with session id as a string
+            const response = await fetch("http://localhost:2319/v1/session/ctix", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "sku": 0,
+                },
+                body: JSON.stringify({
+                    "name": userMessage,
+                }),
+            });
+            if (!response.ok) {
+                console.error("Error creating session:", response.statusText);
+                addMessage(
+                    "system",
+                    "Sorry, there was an error creating a new session."
+                );
+                setIsLoading(false);
+                return;
+            }
+            setIsLoading(false);
+            // response is a string with the session id
+            const data = await response.text();
+            return data;
+        }
+        catch (error) {
+            console.error("Error creating session:", error);
+            addMessage(
+                "system",
+                "Sorry, there was an error creating a new session."
+            );
+        }
+        finally{
+            setIsLoading(false);
+        }
+    }
 
     // Handle agent selection
     const selectAgent = (agent) => {
