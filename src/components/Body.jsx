@@ -28,21 +28,38 @@ export default function Body() {
     useEffect(() => {
         // Function to get the selected text from Chrome extension
         const getSelectedText = () => {
-            // This would typically come from the Chrome extension's content script
-            // For now, we'll mock it with a sample text
-            chrome.runtime.sendMessage(
-                { action: "getSelectedText" },
-                // TODO: redirect to saved agent mode
-                function (response) {
-                    if (response && response.selectedText) {
-                        setSelectedText(response.selectedText);
-                        // Add the user message to the chat
-                        addMessage("user", response.selectedText);
-                        // Send to AI for processing
-                        processWithAI(response.selectedText);
-                    }
+            // Check if there's any text stored from the context menu
+            chrome.storage.local.get(['textForPopup'], function(result) {
+                if (result.textForPopup) {
+                    const storedText = result.textForPopup;
+                    console.log('Retrieved stored text for popup:', storedText);
+                    
+                    // Set the text in the textarea
+                    setUserMessage(storedText);
+                    
+                    // Clear the stored text to avoid showing it again on next open
+                    chrome.storage.local.remove('textForPopup');
+                    
+                    // Optional: you can also add it to the messages if desired
+                    // addMessage("user", storedText);
+                    // processWithAI(storedText);
+                } else {
+                    // This would typically come from the Chrome extension's content script
+                    chrome.runtime.sendMessage(
+                        { action: "getSelectedText" },
+                        // TODO: redirect to saved agent mode
+                        function (response) {
+                            if (response && response.selectedText) {
+                                setSelectedText(response.selectedText);
+                                // Add the user message to the chat
+                                addMessage("user", response.selectedText);
+                                // Send to AI for processing
+                                processWithAI(response.selectedText);
+                            }
+                        }
+                    );
                 }
-            );
+            });
 
             // MOCK DATA - Remove in production
             // const mockSelectedText = "How do I analyze this dataset?";

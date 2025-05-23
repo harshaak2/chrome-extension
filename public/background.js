@@ -16,12 +16,6 @@ chrome.runtime.onStartup.addListener(() => {
 
 function createContextMenu() {
   chrome.contextMenus.create({
-    id: "qbit",
-    title: "QBit",
-    contexts: ["all"], // appears on all contexts
-  });
-
-  chrome.contextMenus.create({
     id: "addToChat",
     title: "Add To Chat",
     contexts: ["selection"], // only appears when text is selected
@@ -54,16 +48,18 @@ chrome.commands.onCommand.addListener((command) => {
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   console.log("Context menu clicked:", info.menuItemId);
   
-  if (info.menuItemId === "qbit") {
-    console.log("QBit menu clicked, opening lookup popup");
-    // Open lookup popup at cursor or selection location
-    openLookupPopup(tab);
-  }
-  else if (info.menuItemId === "addToChat") {
-    // Handle add to chat functionality (existing feature)
+  if (info.menuItemId === "addToChat") {
+    // Handle add to chat functionality
     if (info.selectionText) {
-      // You can implement this part if needed
-      console.log("Selected text:", info.selectionText);
+      console.log("Add to chat clicked with selected text:", info.selectionText);
+      
+      // Store the selected text in storage for the popup to access
+      chrome.storage.local.set({ 'textForPopup': info.selectionText }, function() {
+        console.log('Text saved for popup:', info.selectionText);
+      });
+      
+      // Open the popup
+      chrome.action.openPopup();
     }
   }
 });
