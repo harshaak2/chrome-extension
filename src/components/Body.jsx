@@ -18,11 +18,13 @@ export default function Body() {
     const messagesEndRef = useRef(null);
 
     // State to show the text area for the user to add context
-    const [showTextArea, setShowTextArea] = useState(false);
+    const [showTextArea, setShowTextArea] = useState(true);
     // State to store the context added by the user
     const [userMessage, setUserMessage] = useState("");
     // State to store the session id
     const [sessionId, setSessionId] = useState("");
+    // State to store the title of the session
+    const [sessionTitle, setSessionTitle] = useState("");
 
     useEffect(() => {
         // Function to get the selected text from Chrome extension
@@ -44,10 +46,10 @@ export default function Body() {
             );
 
             // MOCK DATA - Remove in production
-            const mockSelectedText = "How do I analyze this dataset?";
-            setSelectedText(mockSelectedText);
-            addMessage("user", mockSelectedText);
-            processWithAI(mockSelectedText);
+            // const mockSelectedText = "How do I analyze this dataset?";
+            // setSelectedText(mockSelectedText);
+            // addMessage("user", mockSelectedText);
+            // processWithAI(mockSelectedText);
         };
 
         // Call once when component mounts
@@ -146,7 +148,7 @@ export default function Body() {
         joinSession(newSessionId);
 
         // 3. make a POST request to the prompt API with the session id and the user message and prompt mode
-        // await newPrompt(newSessionId);
+        await newPrompt(newSessionId);
     };
 
     const getSessionId = async () => {
@@ -207,7 +209,7 @@ export default function Body() {
                 headers: {
                     "sku": 0,
                     // In a real implementation, you would include the auth token
-                    "Cookie": `cycp=${AUTH_TOKEN};`,
+                    // "Cookie": `cycp=${AUTH_TOKEN};`,
                 }
             });
 
@@ -220,7 +222,7 @@ export default function Body() {
 
             // Demo implementation with dummy data
             console.log("Successfully joined session:", activeSessionId);
-            addMessage("system", "Connected to session");
+            // addMessage("system", "Connected to session");
 
             // Process dummy events with slight delays to simulate streaming
             // setTimeout(() => {
@@ -275,7 +277,12 @@ export default function Body() {
                         }
 
                         try {
-                            const event = JSON.parse(line);
+                            // Check if the line starts with "data:" and remove it
+                            const cleanLine = line.startsWith("data:") ? line.substring(5) : line;
+                            if (!cleanLine) continue;
+
+                            // Parse the JSON string into an event object
+                            const event = JSON.parse(cleanLine);
                             handleEvent(event);
                         } catch (parseError) {
                             console.error("Error parsing event:", parseError, line);
@@ -346,7 +353,13 @@ export default function Body() {
     // Handle individual events
     const handleEvent = (event) => {
         console.log("Received event:", event.ev_name);
-
+        let response = null;
+        if(event.data) {
+            if(event.data.data) {
+                response = event.data.data.content;
+            }
+        }
+        console.log("Response data:", response);
         switch (event.event) {
             case 9: // prompt
                 // Handle prompt event
@@ -355,19 +368,17 @@ export default function Body() {
             case 10: // analyzing
                 // Show analyzing status
                 console.log("Analyzing request...");
-                addMessage("system", "Analyzing your request...");
+                // addMessage("system", "Analyzing your request...");
                 break;
             case 5: // title changed
                 // Update title or show it
                 console.log("Title changed to:", event.data);
-                addMessage("system", `Topic: ${event.data}`);
+                setSessionTitle(event.data);
+                // addMessage("system", `Topic: ${event.data}`);
                 break;
             case 3: // ai answer
-                // Handle AI message chunks
-                if (event.data && typeof event.data === "string") {
-                    addMessage("ai", event.data);
-                }
                 // Clear input field after sending the response back to the user
+                addMessage("ai", response);
                 setUserMessage("");
                 break;
             default:
@@ -426,6 +437,20 @@ export default function Body() {
 
     return (
         <div className="flex flex-col h-full max-h-[500px] bg-gray-50 rounded-lg shadow-md">
+            {/* Title container */}
+            {sessionTitle && (
+                <div className="flex items-center justify-between p-4 border-b border-gray-300">
+                    <h2 className="text-md font-semibold" style={{color: "black"}}>{sessionTitle}</h2>
+                    {/* <span
+                        className="text-gray-500 cursor-pointer text-md font-mono flex items-center justify-center p-2 rounded-lg hover:bg-gray-200 transition duration-200 ease-in-out"
+                        onClick={() => setSessionTitle("")}
+                    >
+                        Clear
+                    </span> */}
+                </div>
+            )}
+
+            {/* Header with icon */}
             {/* Chat messages container */}
             <div className="flex-1 overflow-y-auto p-4">
                 {messages.map((message, index) => (

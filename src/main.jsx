@@ -19,7 +19,8 @@ const renderComponent = () => {
 };
 
 createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    {renderComponent()}
-  </StrictMode>,
+  // <StrictMode>
+    // {renderComponent()}
+    renderComponent()
+  // </StrictMode>,
 )
