@@ -3,7 +3,6 @@ import { MessageCircle, Send } from "lucide-react";
 import { getAIResponse } from "../api";
 import { MODEL, VENDOR, CHAT_MODE, SAVED_AGENT_MODE, AUTH_TOKEN } from "../consts";
 
-import AgentButton from "./AgentButton";
 
 export default function Body() {
     // State for storing messages

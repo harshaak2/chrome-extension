@@ -69,20 +69,20 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 });
 
 // Function to open lookup popup
-function openLookupPopup(tab) {
+function openLookupPopup(tab, isAgentSearch = false) {
   // If tab is not provided, query for the active tab
   if (!tab) {
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       const activeTab = tabs[0];
-      handleLookupPopup(activeTab);
+      handleLookupPopup(activeTab, isAgentSearch);
     });
   } else {
-    handleLookupPopup(tab);
+    handleLookupPopup(tab, isAgentSearch);
   }
 }
 
 // Function to handle the lookup popup logic
-function handleLookupPopup(activeTab) {
+function handleLookupPopup(activeTab, isAgentSearch = false) {
   if (!activeTab || !activeTab.id) return;
   
   // Skip if we're on a page where we can't execute scripts
@@ -106,75 +106,42 @@ function handleLookupPopup(activeTab) {
       if (chrome.runtime.lastError) {
         console.error("Script execution error:", chrome.runtime.lastError.message);
         // Even if there's an error, try to show the popup in the center
-        chrome.windows.create({
-          url: "lookup.html", 
-          type: "popup",
-          width: 400,
-          height: 300
+        showLookupPopup(null, isAgentSearch);
+        return;
+      }
+      
+      // If it's a direct agent search trigger, we already have the text
+      if (isAgentSearch) {
+        // Get screen dimensions to ensure popup doesn't go off-screen
+        chrome.windows.getCurrent((window) => {
+          // Create popup without position data
+          showLookupPopup(null, isAgentSearch);
         });
         return;
       }
       
-      // After script execution, get cursor position
+      // Otherwise, get cursor position for regular popup
       chrome.tabs.sendMessage(
         activeTab.id,
         { type: "GET_CURSOR_POSITION" },
         (response) => {
           if (chrome.runtime.lastError) {
             console.error("Error getting cursor position:", chrome.runtime.lastError.message);
-            // Show popup in center if there's an error
-            chrome.windows.create({
-              url: "lookup.html", 
-              type: "popup",
-              width: 400,
-              height: 300
-            });
+            showLookupPopup(null, isAgentSearch);
             return;
           }
           
           if (response && response.position && response.text) {
-            // Get screen dimensions to ensure popup doesn't go off-screen
-            chrome.windows.getCurrent((window) => {
-              const screenWidth = window.width;
-              const screenHeight = window.height;
-              
-              // Calculate popup position
-              let popupX = Math.round(response.position.x);
-              let popupY = Math.round(response.position.y);
-              
-              // Define popup dimensions
-              const popupWidth = 400;
-              const popupHeight = 300;
-              
-              // Ensure popup stays within screen bounds
-              if (popupX + popupWidth > screenWidth) {
-                popupX = screenWidth - popupWidth - 20; // 20px padding
-              }
-              
-              if (popupY + popupHeight > screenHeight) {
-                // If popup would go below screen bottom, position it above the cursor
-                popupY = Math.round(response.position.y - popupHeight - 10);
-              }
-              
-              // Create popup at adjusted position
-              chrome.windows.create({
-                url: "lookup.html",
-                type: "popup",
-                width: popupWidth,
-                height: popupHeight,
-                left: popupX,
-                top: popupY
-              });
-            });
+            // If getting a normal lookup, store the text
+            if (!isAgentSearch) {
+              selectedTextForLookup = response.text;
+            }
+            
+            showLookupPopup(response.position, isAgentSearch);
           } else {
             // If no position is returned, show popup in center of screen
             console.log("No position data. Showing popup in center.");
-            chrome.windows.create({
-              url: "lookup.html", 
-              type: "popup",
-              width: 400,
-              height: 300
-            });
+            showLookupPopup(null, isAgentSearch);
           }
         }
       );
@@ -182,11 +149,74 @@ function handleLookupPopup(activeTab) {
   } catch (error) {
     console.error("Error executing script:", error);
     // Show popup in center if there's an exception
-    chrome.windows.create({
-      url: "lookup.html", 
-      type: "popup",
-      width: 400,
-      height: 300
+    showLookupPopup(null, isAgentSearch);
+  }
+}
+
+// Function to show the lookup popup with appropriate URL parameters
+function showLookupPopup(position, isAgentSearch) {
+  // Parameters to pass to the lookup popup
+  const queryParams = new URLSearchParams();
+  
+  // Add selected text to URL parameters
+  if (selectedTextForLookup) {
+    queryParams.append('text', selectedTextForLookup);
+  }
+  
+  // Add agent search flag
+  if (isAgentSearch) {
+    queryParams.append('agentSearch', 'true');
+  }
+  
+  // URL for the popup with parameters
+  const lookupUrl = `lookup.html?${queryParams.toString()}`;
+  
+  // Define popup dimensions
+  const popupWidth = 450;
+  const popupHeight = 300;
+  
+  // If we have position data, position the popup near the cursor
+  if (position) {
+    chrome.windows.getCurrent((window) => {
+      const screenWidth = window.width;
+      const screenHeight = window.height;
+      
+      // Calculate popup position
+      let popupX = Math.round(position.x);
+      let popupY = Math.round(position.y);
+      
+      // Ensure popup stays within screen bounds
+      if (popupX + popupWidth > screenWidth) {
+        popupX = screenWidth - popupWidth - 20; // 20px padding
+      }
+      
+      if (popupY + popupHeight > screenHeight) {
+        // If popup would go below screen bottom, position it above the cursor
+        popupY = Math.round(position.y - popupHeight - 10);
+      }
+      
+      // Create popup at adjusted position
+      chrome.windows.create({
+        url: lookupUrl,
+        type: "popup",
+        width: popupWidth,
+        height: popupHeight,
+        left: popupX,
+        top: popupY
+      });
     });
+  } else {
+    // No position data, show in center of screen
+    chrome.windows.create({
+      url: lookupUrl,
+      type: "popup",
+      width: popupWidth,
+      height: popupHeight
+    });
+  }
+  
+  // Reset stored text
+  if (!isAgentSearch) {
+    selectedTextForLookup = '';
   }
 }
