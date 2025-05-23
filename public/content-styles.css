@@ -1,0 +1,24 @@
+/* QBit Icon styles for content script */
+#qbit-selection-icon {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  cursor: pointer;
+  z-index: 10000;
+  display: none;
+  transition: transform 0.2s ease-in-out, opacity 0.2s ease-in-out;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.3));
+  opacity: 0.9;
+  /* background-color: white; */
+  /* border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  padding: 2px; */
+}
+
+#qbit-selection-icon:hover {
+  transform: scale(1.2);
+  opacity: 1;
+  /* box-shadow: 0 3px 8px rgba(0,0,0,0.3); */
+}

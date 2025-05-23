@@ -28,6 +28,20 @@ function createContextMenu() {
   });
 }
 
+// Store selected text for lookup popup
+let selectedTextForLookup = '';
+
+// Listen for messages from content script
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "TRIGGER_AGENT_SEARCH") {
+    console.log("Agent search triggered with text:", message.text);
+    selectedTextForLookup = message.text;
+    openLookupPopup(sender.tab, true);
+    // Send a response back to confirm we received the message
+    sendResponse({ success: true });
+  }
+  return true; // Keep the message channel open for async response
+});
 
 // Listen for keyboard commands
 chrome.commands.onCommand.addListener((command) => {
