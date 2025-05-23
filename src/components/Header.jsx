@@ -1,12 +1,19 @@
 // "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { MoreVertical, X, User, Calendar, ChevronDown, ChevronRight } from "lucide-react"
+import { MoreVertical, X, User, Calendar, ChevronDown, ChevronRight, ChevronLeft } from "lucide-react"
+import { getAllAgents, getAllSessions } from "../api" // Import the API functions
 
 export default function Header() {
   const [showMenu, setShowMenu] = useState(false);
   const [showAgents, setShowAgents] = useState(false);
   const [showSessions, setShowSessions] = useState(false);
+  const [showAllAgents, setShowAllAgents] = useState(false);
+  const [allAgents, setAllAgents] = useState([]);
+  const [isLoadingAgents, setIsLoadingAgents] = useState(false);
+  const [showAllSessions, setShowAllSessions] = useState(false);
+  const [allSessions, setAllSessions] = useState([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const menuRef = useRef(null);
 
   // Dummy data for agents and sessions
@@ -34,24 +41,63 @@ export default function Header() {
   }
 
   function handleClose() {
-    // Logic to close the header
-    console.log("Header closed");
+    window.close(); // Close the popup window
   }
 
   function toggleAgents() {
     setShowAgents(!showAgents);
-    // When opening agents, close sessions
+    // When opening agents, close sessions and reset all agents view
     if (!showAgents) {
       setShowSessions(false);
+      setShowAllAgents(false);
     }
   }
 
   function toggleSessions() {
     setShowSessions(!showSessions);
-    // When opening sessions, close agents
+    // When opening sessions, close agents and reset all sessions view
     if (!showSessions) {
       setShowAgents(false);
+      setShowAllSessions(false);
     }
+  }
+
+  // Function to handle fetching all agents
+  async function handleSeeAllAgents() {
+    try {
+      setIsLoadingAgents(true);
+      setShowAllAgents(true);
+      const agents = await getAllAgents();
+      setAllAgents(agents);
+    } catch (error) {
+      console.error("Error fetching all agents:", error);
+    } finally {
+      setIsLoadingAgents(false);
+    }
+  }
+
+  // Function to go back from all agents view to normal view
+  function handleBackToAgents() {
+    setShowAllAgents(false);
+  }
+
+  // Function to handle fetching all sessions
+  async function handleSeeAllSessions() {
+    try {
+      setIsLoadingSessions(true);
+      setShowAllSessions(true);
+      const sessions = await getAllSessions();
+      setAllSessions(sessions);
+    } catch (error) {
+      console.error("Error fetching all sessions:", error);
+    } finally {
+      setIsLoadingSessions(false);
+    }
+  }
+
+  // Function to go back from all sessions view to normal view
+  function handleBackToSessions() {
+    setShowAllSessions(false);
   }
 
   // Close menu when clicking outside
@@ -65,6 +111,33 @@ export default function Header() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // Add custom scrollbar styles
+  useEffect(() => {
+    // Add a style element for custom scrollbar
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #c0c0c0;
+        border-radius: 10px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #a0a0a0;
+      }
+    `;
+    document.head.appendChild(styleElement);
+
+    return () => {
+      document.head.removeChild(styleElement);
     };
   }, []);
 
@@ -105,18 +178,52 @@ export default function Header() {
                 </div>
                 
                 {/* Agents list - collapsible */}
-                {showAgents && (
+                {showAgents && !showAllAgents && (
                   <div className="ml-6 mt-1">
-                    {dummyAgents.map(agent => (
-                      <div key={agent.id} className="text-xs text-gray-600 py-1 hover:text-[#4123d8] cursor-pointer">
-                        {agent.name}
-                      </div>
-                    ))}
-                    <div className="text-xs text-[#4123d8] py-1 mt-1 font-medium cursor-pointer">
-                      {/* API integration placeholder */}
-                      {/* In the future, fetch agents from API here */}
+                    <div className="max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                      {dummyAgents.map(agent => (
+                        <div key={agent.id} className="text-xs text-gray-600 py-1 hover:text-[#4123d8] cursor-pointer">
+                          {agent.name}
+                        </div>
+                      ))}
+                    </div>
+                    <div 
+                      onClick={handleSeeAllAgents}
+                      className="text-xs text-[#4123d8] py-1 mt-1 font-medium cursor-pointer"
+                    >
                       See all agents →
                     </div>
+                  </div>
+                )}
+
+                {/* Full Agents list from API */}
+                {showAgents && showAllAgents && (
+                  <div className="ml-6 mt-1">
+                    <div 
+                      onClick={handleBackToAgents}
+                      className="text-xs text-[#4123d8] py-1 mb-2 font-medium cursor-pointer flex items-center"
+                    >
+                      <ChevronLeft className="h-3 w-3 mr-1" /> Back
+                    </div>
+                    
+                    {isLoadingAgents ? (
+                      <div className="text-xs text-gray-600 py-1">Loading agents...</div>
+                    ) : (
+                      <div className="max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                        {allAgents.map(agent => (
+                          <div key={agent.id} className="text-xs text-gray-600 py-1 hover:text-[#4123d8] cursor-pointer">
+                            {agent.name}
+                            {agent.description && (
+                              <div className="text-gray-400 text-[10px]">
+                                {agent.description.length > 40 
+                                  ? agent.description.substring(0, 40) + "..." 
+                                  : agent.description}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -135,19 +242,56 @@ export default function Header() {
                 </div>
                 
                 {/* Sessions list - collapsible */}
-                {showSessions && (
+                {showSessions && !showAllSessions && (
                   <div className="ml-6 mt-1">
-                    {dummySessions.map(session => (
-                      <div key={session.id} className="text-xs text-gray-600 py-1 hover:text-[#4123d8] cursor-pointer">
-                        <span>{session.name}</span>
-                        <span className="text-gray-400 ml-1">({session.date})</span>
-                      </div>
-                    ))}
-                    <div className="text-xs text-[#4123d8] py-1 mt-1 font-medium cursor-pointer">
-                      {/* API integration placeholder */}
-                      {/* In the future, fetch sessions from API here */}
+                    <div className="max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                      {dummySessions.map(session => (
+                        <div key={session.id} className="text-xs text-gray-600 py-1 hover:text-[#4123d8] cursor-pointer">
+                          <span>{session.name}</span>
+                          {/* <span className="text-gray-400 ml-1">({session.date})</span> */}
+                        </div>
+                      ))}
+                    </div>
+                    <div 
+                      onClick={handleSeeAllSessions}
+                      className="text-xs text-[#4123d8] py-1 mt-1 font-medium cursor-pointer"
+                    >
                       See all sessions →
                     </div>
+                  </div>
+                )}
+
+                {/* Full Sessions list from API */}
+                {showSessions && showAllSessions && (
+                  <div className="ml-6 mt-1">
+                    <div 
+                      onClick={handleBackToSessions}
+                      className="text-xs text-[#4123d8] py-1 mb-2 font-medium cursor-pointer flex items-center"
+                    >
+                      <ChevronLeft className="h-3 w-3 mr-1" /> Back
+                    </div>
+                    
+                    {isLoadingSessions ? (
+                      <div className="text-xs text-gray-600 py-1">Loading sessions...</div>
+                    ) : (
+                      <div className="max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                        {allSessions.map(session => (
+                          <div key={session.id} className="text-xs text-gray-600 py-1 hover:text-[#4123d8] cursor-pointer">
+                            <div className="flex justify-between">
+                              <span>{session.name}</span>
+                              {/* <span className="text-gray-400 ml-1 text-[10px]">{session.date}</span> */}
+                            </div>
+                            {/* {session.description && (
+                              <div className="text-gray-400 text-[10px]">
+                                {session.description.length > 40 
+                                  ? session.description.substring(0, 40) + "..." 
+                                  : session.description}
+                              </div>
+                            )} */}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -156,7 +300,7 @@ export default function Header() {
         </div>
         <div 
           onClick={handleClose} 
-          className="text-white hover:bg-[#5438e2] cursor-pointer p-1"
+          className="text-white hover:bg-[#5438e2] hover:rounded-sm cursor-pointer p-1 transition-all"
         >
           <X className="h-4 w-4" />
         </div>

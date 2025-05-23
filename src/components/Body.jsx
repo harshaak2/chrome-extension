@@ -3,6 +3,16 @@ import { MessageCircle, Send } from "lucide-react";
 import { getAIResponse } from "../api";
 import { MODEL, VENDOR, CHAT_MODE, SAVED_AGENT_MODE, AUTH_TOKEN } from "../consts";
 
+// Define a style for the welcome message animation
+const fadeInAnimation = `
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.6s ease-out;
+}
+`;
 
 export default function Body() {
     // State for storing messages
@@ -15,6 +25,8 @@ export default function Body() {
     const [availableAgents, setAvailableAgents] = useState([]);
     // Reference to scroll to bottom of chat
     const messagesEndRef = useRef(null);
+    // State to track if the user has sent their first prompt
+    const [hasInteracted, setHasInteracted] = useState(false);
 
     // State to show the text area for the user to add context
     const [showTextArea, setShowTextArea] = useState(true);
@@ -40,32 +52,24 @@ export default function Body() {
                     // Clear the stored text to avoid showing it again on next open
                     chrome.storage.local.remove('textForPopup');
                     
-                    // Optional: you can also add it to the messages if desired
-                    // addMessage("user", storedText);
-                    // processWithAI(storedText);
                 } else {
                     // This would typically come from the Chrome extension's content script
                     chrome.runtime.sendMessage(
                         { action: "getSelectedText" },
-                        // TODO: redirect to saved agent mode
-                        function (response) {
-                            if (response && response.selectedText) {
-                                setSelectedText(response.selectedText);
-                                // Add the user message to the chat
-                                addMessage("user", response.selectedText);
-                                // Send to AI for processing
-                                processWithAI(response.selectedText);
-                            }
+                        // TODO: redirect to saved agent mode && check the below function
+                        function (response) {                    if (response && response.selectedText) {
+                        setSelectedText(response.selectedText);
+                        // Add the user message to the chat
+                        addMessage("user", response.selectedText);
+                        // Set hasInteracted to true since content was selected
+                        setHasInteracted(true);
+                        // Send to AI for processing
+                        processWithAI(response.selectedText);
+                    }
                         }
                     );
                 }
             });
-
-            // MOCK DATA - Remove in production
-            // const mockSelectedText = "How do I analyze this dataset?";
-            // setSelectedText(mockSelectedText);
-            // addMessage("user", mockSelectedText);
-            // processWithAI(mockSelectedText);
         };
 
         // Call once when component mounts
@@ -89,52 +93,6 @@ export default function Body() {
         ]);
     };
 
-    // Process the selected text with AI
-    const processWithAI = async (text) => {
-        setIsLoading(true);
-        try {
-            // TODO: Handle API logic here
-            // const response = await getAIResponse(text);
-
-            // MOCK RESPONSE - Replace with actual API call
-            const mockResponse = {
-                message:
-                    "I can help analyze your dataset. Here are some options:",
-                agents: [
-                    {
-                        id: 1,
-                        name: "Data Analysis Agent",
-                        description:
-                            "Perform basic statistical analysis on your data",
-                    },
-                    {
-                        id: 2,
-                        name: "Visualization Agent",
-                        description: "Create charts and graphs from your data",
-                    },
-                    {
-                        id: 3,
-                        name: "Machine Learning Agent",
-                        description: "Run predictive models on your dataset",
-                    },
-                ],
-            };
-
-            // Add AI response to chat
-            // addMessage("ai", mockResponse.message);
-            // Set available agents
-            setAvailableAgents(mockResponse.agents);
-        } catch (error) {
-            console.error("Error processing with AI:", error);
-            addMessage(
-                "system",
-                "Sorry, there was an error processing your request."
-            );
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     // handle chat should trigger the prompt api
     // 1. make a POST request to new session API with user prompt as body - returns session id
     // 2. make a GET request to the join API which keeps streaming events throughout the session
@@ -142,12 +100,15 @@ export default function Body() {
     const handleChat = async () => {
         if (!userMessage.trim()) return; // Don't send empty messages
 
+        // Set hasInteracted to true to hide the welcome message
+        setHasInteracted(true);
+        
         // Add user message to chat
         addMessage("user", userMessage);
 
         // Clear input field
         const currentMessage = userMessage;
-        // setUserMessage("");
+        setUserMessage("");
 
         // 1. make a POST request to new session API - returns session id
         const newSessionId = await getSessionId();
@@ -233,32 +194,9 @@ export default function Body() {
                 throw new Error(`Failed to join session: ${response.statusText}`);
             }
 
-            // For demo purposes, we'll use the dummy events instead of actual streaming
-            // In production, uncomment the streaming code below
-
-            // Demo implementation with dummy data
             console.log("Successfully joined session:", activeSessionId);
-            // addMessage("system", "Connected to session");
 
-            // Process dummy events with slight delays to simulate streaming
-            // setTimeout(() => {
-            //     handleEvent({"ev_name": "prompt", "event": 9, "offset": 0, "data": {"data":{"session_id": activeSessionId,"text": userMessage,"context":"","vendor":"openai","model":"gpt4o","product":"","user_id":"01JS4EXWSRHQ9QRXVRERDCH2S1","full_name":"Harsha","email":"harsha.k@cyware.com","prompt_mode":1,"type":1,"temperature":false},"type":1,"subtype":0,"offset":0,"error":null,"parent_msg_offset":null}});
-            // }, 500);
-
-            // setTimeout(() => {
-            //     handleEvent({"ev_name": "analysing", "event": 10, "offset": 0});
-            // }, 1000);
-
-            // setTimeout(() => {
-            //     handleEvent({"ev_name": "title changed", "event": 5, "data": "Understanding " + userMessage});
-            // }, 1500);
-
-            // setTimeout(() => {
-            //     setIsLoading(false);
-            // }, 2000);
-
-            // Real streaming implementation (uncomment in production):
-
+            // Real streaming implementation
             if (response.body) {
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
@@ -314,55 +252,6 @@ export default function Body() {
             console.error("Error joining session:", error);
             addMessage("system", "Error connecting to session. Please try again.");
             setIsLoading(false);
-        }
-    };
-
-    // Process events from the stream
-    const processEvents = (buffer) => {
-        try {
-            // In a real implementation, we need to handle incomplete JSON objects
-            // This is a simplified version that assumes each chunk is a complete JSON object
-
-            // For demo purposes, we're using dummy events instead of parsing the buffer
-            // In a real implementation, you would parse the buffer to extract JSON objects
-
-            // IMPLEMENTATION NOTE: In production, replace this with actual buffer parsing
-            const dummyEvents = [
-                { "ev_name": "prompt", "event": 9, "offset": 0, "data": { "data": { "session_id": "01JVWAJ2K79201F30CG4HAY9B8", "text": "explain dos attack", "context": "", "vendor": "openai", "model": "gpt4o", "product": "", "user_id": "01JS4EXWSRHQ9QRXVRERDCH2S1", "full_name": "Harsha", "email": "harsha.k@cyware.com", "prompt_mode": 1, "type": 1, "temperature": false }, "type": 1, "subtype": 0, "offset": 0, "error": null, "parent_msg_offset": null } },
-                { "ev_name": "analysing", "event": 10, "offset": 0 },
-                { "ev_name": "title changed", "event": 5, "data": "Understanding DoS Attacks" }
-            ];
-
-            // Process each dummy event (replace with actual parsing in production)
-            dummyEvents.forEach(event => {
-                handleEvent(event);
-            });
-
-            /* Real implementation would be something like:
-            
-            // Split buffer by newlines to get individual JSON objects
-            const lines = buffer.split('\n');
-            
-            // Process each line that might contain a JSON object
-            lines.forEach((line, index) => {
-                if (!line.trim()) return; // Skip empty lines
-                
-                try {
-                    const event = JSON.parse(line);
-                    handleEvent(event);
-                } catch (err) {
-                    // This might be an incomplete JSON object, keep it for the next processing
-                    if (index === lines.length - 1) {
-                        return line; // Return the incomplete line to be reprocessed
-                    }
-                }
-            });
-            
-            // Return any incomplete data to be processed with the next chunk
-            return lines[lines.length - 1].trim() ? lines[lines.length - 1] : '';
-            */
-        } catch (error) {
-            console.error("Error processing events:", error);
         }
     };
 
@@ -453,6 +342,9 @@ export default function Body() {
 
     return (
         <div className="flex flex-col h-full max-h-[500px] bg-gray-50 rounded-lg shadow-md">
+            {/* Apply the animation style */}
+            <style>{fadeInAnimation}</style>
+            
             {/* Title container */}
             {sessionTitle && (
                 <div className="flex items-center justify-between p-4 border-b border-gray-300">
@@ -469,6 +361,16 @@ export default function Body() {
             {/* Header with icon */}
             {/* Chat messages container */}
             <div className="flex-1 overflow-y-auto p-4">
+                {messages.length === 0 && !hasInteracted && (
+                    <div className="flex items-center justify-center h-full">
+                        <div className="text-center text-gray-700 p-6 animate-fade-in font-sans">
+                            <p className="text-lg font-semibold font-sans">Leverage the power of</p>
+                            <span className="text-3xl font-bold font-sans text-shadow-xs" style={{color: "black"}}>Quarterback AI</span>
+                            <p className="text-md mt-0.5">Now at your cursor</p>
+                        </div>
+                    </div>
+                )}
+                
                 {messages.map((message, index) => (
                     <div
                         key={index}
@@ -511,19 +413,6 @@ export default function Body() {
                 <div ref={messagesEndRef} />
             </div>
 
-            {/* Available agents section */}
-            {/* {availableAgents.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                  {availableAgents.map((agent) => (
-                      <AgentButton
-                          key={agent.id}
-                          agent={agent}
-                          onClick={() => selectAgent(agent)}
-                      />
-                  ))}
-              </div>
-          )} */}
-
             {/* Only show span when textarea is not visible */}
             {/* make sure that the span icon is in the center */}
             {!showTextArea && (
@@ -536,13 +425,24 @@ export default function Body() {
             )}
             {/* Text area for user input along with a send button*/}
             {showTextArea && (
-                <div className="flex items-center justify-between p-4 border-t border-gray-300 gap-1.5">
+                <div className="flex items-center justify-between p-4 border-gray-300 gap-1.5">
                     <textarea
-                        className={`p-2 border border-gray-300 rounded-lg w-80 resize-none`}
+                        className={`p-2 border border-gray-300 rounded-lg w-80 resize-none scrollbar-none focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            isLoading ? "opacity-50 cursor-not-allowed" : ""
+                        }`}
+                        disabled={isLoading}
                         rows={1}
                         placeholder="Chat with QBit"
                         value={userMessage}
                         onChange={(e) => setUserMessage(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                if (!isLoading && userMessage.trim()) {
+                                    handleChat();
+                                }
+                            }
+                        }}
                         style={{
                             height: "40px",
                             minHeight: "40px",
