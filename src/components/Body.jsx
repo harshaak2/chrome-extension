@@ -1,13 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { MessageCircle, Send } from "lucide-react";
 import { getAIResponse } from "../api";
+import { MODEL, VENDOR, CHAT_MODE, SAVED_AGENT_MODE, AUTH_TOKEN } from "../consts";
 
 import AgentButton from "./AgentButton";
 
-// body should have the chat UI with the user selected content and the
-// available agents that are available to act on the selected content
-// the selected text (not copied) should be shown as the message sent
-// to the AI - waiting for the AI to respond with available agents
 export default function Body() {
     // State for storing messages
     const [messages, setMessages] = useState([]);
@@ -24,6 +21,8 @@ export default function Body() {
     const [showTextArea, setShowTextArea] = useState(false);
     // State to store the context added by the user
     const [userMessage, setUserMessage] = useState("");
+    // State to store the session id
+    const [sessionId, setSessionId] = useState("");
 
     useEffect(() => {
         // Function to get the selected text from Chrome extension
@@ -32,6 +31,7 @@ export default function Body() {
             // For now, we'll mock it with a sample text
             chrome.runtime.sendMessage(
                 { action: "getSelectedText" },
+                // TODO: redirect to saved agent mode
                 function (response) {
                     if (response && response.selectedText) {
                         setSelectedText(response.selectedText);
@@ -103,7 +103,7 @@ export default function Body() {
             };
 
             // Add AI response to chat
-            addMessage("ai", mockResponse.message);
+            // addMessage("ai", mockResponse.message);
             // Set available agents
             setAvailableAgents(mockResponse.agents);
         } catch (error) {
@@ -122,21 +122,35 @@ export default function Body() {
     // 2. make a GET request to the join API which keeps streaming events throughout the session
     // 3. make a POST request to the prompt API with the session id and the user message and prompt mode
     const handleChat = async () => {
-        // console.log(`Context added: ${context}`);
+        if (!userMessage.trim()) return; // Don't send empty messages
+
+        // Add user message to chat
+        addMessage("user", userMessage);
+
+        // Clear input field
+        const currentMessage = userMessage;
+        // setUserMessage("");
+
         // 1. make a POST request to new session API - returns session id
-        const sessionId = await getSessionId();
-        if (!sessionId) {
+        const newSessionId = await getSessionId();
+        if (!newSessionId) {
             console.error("Session ID not found");
             return;
         }
-        console.log(`Session ID: ${sessionId}`);
+        
+        // Update the state with the new session ID
+        setSessionId(newSessionId);
+        console.log(`Session ID: ${newSessionId}`);
 
         // 2. make a GET request to the join API which keeps streaming events throughout the session
-        
+        joinSession(newSessionId);
+
+        // 3. make a POST request to the prompt API with the session id and the user message and prompt mode
+        // await newPrompt(newSessionId);
     };
 
     const getSessionId = async () => {
-        try{
+        try {
             setIsLoading(true);
             // response gives a status code of 201 with session id as a string
             const response = await fetch("http://localhost:2319/v1/session/ctix", {
@@ -156,11 +170,14 @@ export default function Body() {
                     "Sorry, there was an error creating a new session."
                 );
                 setIsLoading(false);
-                return;
+                return null;
             }
-            setIsLoading(false);
+            
             // response is a string with the session id
             const data = await response.text();
+            console.log("Session ID:", data);
+            
+            // Return the session ID instead of just setting state
             return data;
         }
         catch (error) {
@@ -169,11 +186,234 @@ export default function Body() {
                 "system",
                 "Sorry, there was an error creating a new session."
             );
+            return null;
         }
-        finally{
+        finally {
             setIsLoading(false);
         }
-    }
+    };
+
+
+    // Function to join a session and handle streaming events
+    // consider null if no value is passed
+    const joinSession = async (sid = null) => {
+        try {
+            setIsLoading(true);
+            // Use provided session ID or fall back to state
+            const activeSessionId = sid || sessionId;
+            
+            const response = await fetch(`http://localhost:2319/v1/session/join/${activeSessionId}/`, {
+                method: "GET",
+                headers: {
+                    "sku": 0,
+                    // In a real implementation, you would include the auth token
+                    "Cookie": `cycp=${AUTH_TOKEN};`,
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to join session: ${response.statusText}`);
+            }
+
+            // For demo purposes, we'll use the dummy events instead of actual streaming
+            // In production, uncomment the streaming code below
+
+            // Demo implementation with dummy data
+            console.log("Successfully joined session:", activeSessionId);
+            addMessage("system", "Connected to session");
+
+            // Process dummy events with slight delays to simulate streaming
+            // setTimeout(() => {
+            //     handleEvent({"ev_name": "prompt", "event": 9, "offset": 0, "data": {"data":{"session_id": activeSessionId,"text": userMessage,"context":"","vendor":"openai","model":"gpt4o","product":"","user_id":"01JS4EXWSRHQ9QRXVRERDCH2S1","full_name":"Harsha","email":"harsha.k@cyware.com","prompt_mode":1,"type":1,"temperature":false},"type":1,"subtype":0,"offset":0,"error":null,"parent_msg_offset":null}});
+            // }, 500);
+
+            // setTimeout(() => {
+            //     handleEvent({"ev_name": "analysing", "event": 10, "offset": 0});
+            // }, 1000);
+
+            // setTimeout(() => {
+            //     handleEvent({"ev_name": "title changed", "event": 5, "data": "Understanding " + userMessage});
+            // }, 1500);
+
+            // setTimeout(() => {
+            //     setIsLoading(false);
+            // }, 2000);
+
+            // Real streaming implementation (uncomment in production):
+
+            if (response.body) {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                // Process the stream
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        console.log("Stream completed");
+                        setIsLoading(false);
+                        break;
+                    }
+
+                    // Decode the chunk and add to buffer
+                    const chunk = decoder.decode(value, { stream: true });
+                    buffer += chunk;
+
+                    // Split on newlines to find complete JSON objects
+                    const lines = buffer.split('\n');
+
+                    // Process all complete lines except possibly the last one
+                    buffer = '';
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        if (!line) continue;
+
+                        // If this is the last line and doesn't end with a newline, it might be incomplete
+                        if (i === lines.length - 1 && !chunk.endsWith('\n')) {
+                            buffer = line;
+                            continue;
+                        }
+
+                        try {
+                            const event = JSON.parse(line);
+                            handleEvent(event);
+                        } catch (parseError) {
+                            console.error("Error parsing event:", parseError, line);
+                        }
+                    }
+                }
+            } else {
+                console.error("ReadableStream not supported in this browser");
+                addMessage("system", "Sorry, your browser doesn't support streaming responses.");
+                setIsLoading(false);
+            }
+        } catch (error) {
+            console.error("Error joining session:", error);
+            addMessage("system", "Error connecting to session. Please try again.");
+            setIsLoading(false);
+        }
+    };
+
+    // Process events from the stream
+    const processEvents = (buffer) => {
+        try {
+            // In a real implementation, we need to handle incomplete JSON objects
+            // This is a simplified version that assumes each chunk is a complete JSON object
+
+            // For demo purposes, we're using dummy events instead of parsing the buffer
+            // In a real implementation, you would parse the buffer to extract JSON objects
+
+            // IMPLEMENTATION NOTE: In production, replace this with actual buffer parsing
+            const dummyEvents = [
+                { "ev_name": "prompt", "event": 9, "offset": 0, "data": { "data": { "session_id": "01JVWAJ2K79201F30CG4HAY9B8", "text": "explain dos attack", "context": "", "vendor": "openai", "model": "gpt4o", "product": "", "user_id": "01JS4EXWSRHQ9QRXVRERDCH2S1", "full_name": "Harsha", "email": "harsha.k@cyware.com", "prompt_mode": 1, "type": 1, "temperature": false }, "type": 1, "subtype": 0, "offset": 0, "error": null, "parent_msg_offset": null } },
+                { "ev_name": "analysing", "event": 10, "offset": 0 },
+                { "ev_name": "title changed", "event": 5, "data": "Understanding DoS Attacks" }
+            ];
+
+            // Process each dummy event (replace with actual parsing in production)
+            dummyEvents.forEach(event => {
+                handleEvent(event);
+            });
+
+            /* Real implementation would be something like:
+            
+            // Split buffer by newlines to get individual JSON objects
+            const lines = buffer.split('\n');
+            
+            // Process each line that might contain a JSON object
+            lines.forEach((line, index) => {
+                if (!line.trim()) return; // Skip empty lines
+                
+                try {
+                    const event = JSON.parse(line);
+                    handleEvent(event);
+                } catch (err) {
+                    // This might be an incomplete JSON object, keep it for the next processing
+                    if (index === lines.length - 1) {
+                        return line; // Return the incomplete line to be reprocessed
+                    }
+                }
+            });
+            
+            // Return any incomplete data to be processed with the next chunk
+            return lines[lines.length - 1].trim() ? lines[lines.length - 1] : '';
+            */
+        } catch (error) {
+            console.error("Error processing events:", error);
+        }
+    };
+
+    // Handle individual events
+    const handleEvent = (event) => {
+        console.log("Received event:", event.ev_name);
+
+        switch (event.event) {
+            case 9: // prompt
+                // Handle prompt event
+                console.log("Prompt data:", event.data);
+                break;
+            case 10: // analyzing
+                // Show analyzing status
+                console.log("Analyzing request...");
+                addMessage("system", "Analyzing your request...");
+                break;
+            case 5: // title changed
+                // Update title or show it
+                console.log("Title changed to:", event.data);
+                addMessage("system", `Topic: ${event.data}`);
+                break;
+            case 3: // ai answer
+                // Handle AI message chunks
+                if (event.data && typeof event.data === "string") {
+                    addMessage("ai", event.data);
+                }
+                // Clear input field after sending the response back to the user
+                setUserMessage("");
+                break;
+            default:
+                console.log("Unhandled event type:", event.ev_name);
+        }
+    };
+
+    const newPrompt = async (sid = null) => {
+        try {
+            setIsLoading(true);
+            // Use provided session ID or fall back to state
+            const activeSessionId = sid || sessionId;
+            
+            const response = await fetch(`http://localhost:2319/v1/session/prompt/`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "sku": 0,
+                },
+                body: JSON.stringify({
+                    "session_id": activeSessionId,
+                    "text": userMessage,
+                    "type": 1,
+                    //* Chat mode - 1
+                    "prompt_mode": CHAT_MODE,
+                    "vendor": VENDOR,
+                    "model": MODEL,
+                    "heat": "false",
+                })
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to send prompt: ${response.statusText}`);
+            }
+            console.log("Prompt sent successfully");
+        }
+        catch (error) {
+            console.error("Error sending prompt:", error);
+            addMessage(
+                "system",
+                "Sorry, there was an error sending your prompt."
+            );
+        }
+        finally {
+            setIsLoading(false);
+        }
+    };
 
     // Handle agent selection
     const selectAgent = (agent) => {
@@ -191,20 +431,18 @@ export default function Body() {
                 {messages.map((message, index) => (
                     <div
                         key={index}
-                        className={`mb-4 flex ${
-                            message.sender === "user"
-                                ? "justify-end"
-                                : "justify-start"
-                        }`}
+                        className={`mb-4 flex ${message.sender === "user"
+                            ? "justify-end"
+                            : "justify-start"
+                            }`}
                     >
                         <div
-                            className={`p-3 rounded-lg max-w-[80%] ${
-                                message.sender === "user"
-                                    ? "bg-blue-500 text-white rounded-br-none"
-                                    : message.sender === "ai"
+                            className={`p-3 rounded-lg max-w-[80%] ${message.sender === "user"
+                                ? "bg-blue-500 text-white rounded-br-none"
+                                : message.sender === "ai"
                                     ? "bg-gray-200 text-gray-800 rounded-bl-none"
                                     : "bg-gray-300 text-gray-800 italic"
-                            }`}
+                                }`}
                         >
                             {message.text}
                         </div>
