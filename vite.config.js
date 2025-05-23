@@ -11,8 +11,10 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
+        // main: resolve(__dirname, 'src/main.jsx'),
         popup: resolve(__dirname, 'popup.html'),
         options: resolve(__dirname, 'options.html'),
+        lookup: resolve(__dirname, 'lookup.html'),
       },
       output: {
         entryFileNames: 'assets/[name].js',

@@ -35,6 +35,12 @@
         "mac": "Command+I"
       },
       "description": "Open QB it extension"
+    },
+    "open_lookup_popup": {
+      "suggested_key": {
+        "mac": "Command+J"
+      },
+      "description": "Open QB it lookup popup at cursor"
     }
   }
 }
