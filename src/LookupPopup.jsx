@@ -127,78 +127,115 @@ function LookupPopup() {
 
   return (
     <div className={`lookup-container ${fadeOut ? 'fade-out' : ''}`}>
-      {/* <div className="lookup-header">
-        <div className="lookup-title">QBit Lookup</div>
-        <button 
-          className="close-button"
-          onClick={handleClose}
-          aria-label="Close">
-          ✕
-        </button>
-      </div> */}
-      
       <div className="lookup-content">
         {loading && !isAgentSearch ? (
-          <div className="loading">
-            <div className="spinner"></div>
-            <div>Loading...</div>
+          <div className="ai-response-container">
+            <div className="ai-avatar">
+              <img src="/qb_icon.svg" alt="AI Assistant" />
+            </div>
+            <div className="ai-content">
+              <div className="ai-header">
+                {/* <div className="ai-name">QBit Assistant</div> */}
+              </div>
+              <div className="ai-message">
+                <div className="loading">
+                  <div className="spinner"></div>
+                  <div>Loading...</div>
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
           <>
-            {/* <div className="selected-text-section">
-              <h3>Selected Text</h3>
-              <div className="selected-text">{selectedText}</div>
-              {error && <div className="error">{error}</div>}
-            </div> */}
-            
             <div className="lookup-results">
-              <h3>Agent Lookup</h3>
               {isAgentSearch ? (
                 loading ? (
-                  <div className="loading">
-                    <div className="spinner"></div>
-                    <div>Fetching results...</div>
+                  <div className="ai-response-container">
+                    <div className="ai-avatar">
+                      <img src="/qb_icon.svg" alt="AI Assistant" />
+                    </div>
+                    <div className="ai-content">
+                      <div className="ai-header">
+                        {/* <div className="ai-name">QBit Assistant</div> */}
+                      </div>
+                      <div className="ai-message">
+                        <div className="loading">
+                          <div className="spinner"></div>
+                          <div>Analyzing your selection...</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ) : lookupResult ? (
-                  <div className="">
-                    {/* {typeof lookupResult === 'string' 
-                      ? lookupResult 
-                      : lookupResult.message 
-                        ? lookupResult.message
-                        : lookupResult.results && Array.isArray(lookupResult.results)
-                          ? (
-                            <div>
-                              <p>{lookupResult.message || "Search results:"}</p>
-                              <ul className="search-results-list">
-                                {lookupResult.results.map((result, index) => (
-                                  <li key={index} className="search-result-item">
-                                    <strong>{result.agent_name || "Agent"}</strong>
-                                    {result.description && <p>{result.description}</p>}
-                                  </li>
-                                ))}
-                              </ul>
+                  <div className="ai-response-container">
+                    <div className="ai-avatar">
+                      <img src="/qb_icon.svg" alt="AI Assistant" />
+                    </div>
+                    <div className="ai-content">
+                      <div className="ai-header">
+                        {/* <div className="ai-name">QBit Assistant</div> */}
+                      </div>
+                      <div className="ai-message">
+                        I found some relevant agents that might help with your query:
+                      </div>
+                      {lookupResult.results && (
+                        <div className="agent-results">
+                          {lookupResult.results.map((result, index) => (
+                            <div 
+                              key={index} 
+                              className="result-item"
+                              style={{ '--animation-order': index }}
+                            >
+                              <AgentButton agent={result}>{result.agent_name}</AgentButton>
                             </div>
-                          )
-                          : JSON.stringify(lookupResult, null, 2)} */}
-                    {lookupResult.results && (
-                        <div className="flex flex-wrap gap-2">
-                            {lookupResult.results.map((result, index) => (
-                                <div key={index} className="result-item">
-                                    <AgentButton>{result.agent_name}</AgentButton>
-                                </div>
-                            ))}
+                          ))}
                         </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 ) : error ? (
-                  <div className="error">{error}</div>
+                  <div className="ai-response-container">
+                    <div className="ai-avatar">
+                      <img src="/qb_icon.svg" alt="AI Assistant" />
+                    </div>
+                    <div className="ai-content">
+                      <div className="ai-header">
+                        {/* <div className="ai-name">QBit Assistant</div> */}
+                      </div>
+                      <div className="ai-message">
+                        Sorry, I encountered an error: {error}
+                      </div>
+                    </div>
+                  </div>
                 ) : (
-                  <div className="no-results">No results found</div>
+                  <div className="ai-response-container">
+                    <div className="ai-avatar">
+                      <img src="/qb_icon.svg" alt="AI Assistant" />
+                    </div>
+                    <div className="ai-content">
+                      <div className="ai-header">
+                        {/* <div className="ai-name">QBit Assistant</div> */}
+                      </div>
+                      <div className="ai-message">
+                        I couldn't find any relevant agents for your query.
+                      </div>
+                    </div>
+                  </div>
                 )
               ) : (
-                <div className="dummy-result">
-                  <p>No text is currently selected.</p>
-                  <p>Select text on the page to automatically see AI-powered results.</p>
+                <div className="ai-response-container">
+                  <div className="ai-avatar">
+                    <img src="/qb_icon.svg" alt="AI Assistant" />
+                  </div>
+                  <div className="ai-content">
+                    <div className="ai-header">
+                      {/* <div className="ai-name">QBit Assistant</div> */}
+                    </div>
+                    <div className="ai-message">
+                      <p>No text is currently selected.</p>
+                      <p>Select text on the page to automatically see AI-powered results.</p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

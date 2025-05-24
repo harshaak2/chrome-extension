@@ -4,7 +4,7 @@ export default function AgentButton({ agent, onClick, children }) {
     return (
         <div
             key={agent?.id}
-            className="inline-flex items-center bg-white border border-gray-300 rounded-full px-3 py-1 text-sm transition-colors hover:bg-[#4123d8] hover:text-white cursor-pointer min-w-fit whitespace-nowrap w-auto"
+            className="inline-flex items-center bg-white border border-[#4123d8] rounded-full px-3 py-1 text-sm transition-colors hover:bg-[#4123d8] hover:text-white cursor-pointer min-w-fit whitespace-nowrap w-auto"
             onClick={onClick}
         >
             {displayName}

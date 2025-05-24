@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { MessageCircle, Send } from "lucide-react";
+import ReactMarkdown from 'react-markdown';
+import rehypeHighlight from 'rehype-highlight';
 import { getAIResponse } from "../api";
 import { MODEL, VENDOR, CHAT_MODE, SAVED_AGENT_MODE, AUTH_TOKEN } from "../consts";
+import '../highlight.css';
+import MarkdownErrorBoundary from './MarkdownErrorBoundary';
 
 // Define a style for the welcome message animation
 const fadeInAnimation = `
@@ -11,6 +15,107 @@ const fadeInAnimation = `
 }
 .animate-fade-in {
   animation: fadeIn 0.6s ease-out;
+}
+
+/* Markdown content styles */
+.markdown-content {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 0.9rem; /* Decreased font size for AI responses */
+}
+
+.markdown-content h1, 
+.markdown-content h2, 
+.markdown-content h3, 
+.markdown-content h4, 
+.markdown-content h5, 
+.markdown-content h6 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.markdown-content h1 {
+  font-size: 1.3rem;
+}
+
+.markdown-content h2 {
+  font-size: 1.1rem;
+}
+
+.markdown-content h3 {
+  font-size: 1rem;
+}
+
+.markdown-content p {
+  margin-bottom: 0.6rem;
+  line-height: 1.4;
+}
+
+.markdown-content ul, 
+.markdown-content ol {
+  margin-left: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.markdown-content ul {
+  list-style-type: disc;
+}
+
+.markdown-content ol {
+  list-style-type: decimal;
+}
+
+.markdown-content a {
+  color: #4123d8;
+  text-decoration: underline;
+}
+
+.markdown-content code {
+  font-family: monospace;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.2rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+.markdown-content pre {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.5rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin-bottom: 0.75rem;
+}
+
+.markdown-content pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+.markdown-content blockquote {
+  border-left: 3px solid #d1d5db;
+  padding-left: 1rem;
+  margin-left: 0;
+  margin-right: 0;
+  color: #6b7280;
+}
+
+.markdown-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 0.75rem;
+}
+
+.markdown-content table th,
+.markdown-content table td {
+  border: 1px solid #d1d5db;
+  padding: 0.5rem;
+  text-align: left;
+}
+
+.markdown-content table th {
+  background-color: rgba(0, 0, 0, 0.05);
 }
 `;
 
@@ -103,7 +208,7 @@ export default function Body() {
         // Set hasInteracted to true to hide the welcome message
         setHasInteracted(true);
         
-        // Add user message to chat
+        // Add user message to chat - no need to parse as markdown here as it's user input
         addMessage("user", userMessage);
 
         // Clear input field
@@ -125,22 +230,28 @@ export default function Body() {
         joinSession(newSessionId);
 
         // 3. make a POST request to the prompt API with the session id and the user message and prompt mode
-        await newPrompt(newSessionId);
+        await newPrompt(newSessionId, currentMessage);
     };
 
     const getSessionId = async () => {
         try {
             setIsLoading(true);
             // response gives a status code of 201 with session id as a string
-            const response = await fetch("http://localhost:2319/v1/session/ctix", {
+            const response = await fetch("https://cpqa.qa-mt.cywareqa.com/qb/v1/session/ctix/", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
+                    "accept": "application/json",
+                    "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
+                    "authorization": "CYW eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJjc2FwX21lbWJlcl9wZXJtaXNzaW9uIjpudWxsLCJkZXZpY2VfaWQiOiIiLCJlbWFpbCI6InN5c3RlbS5kZWZhdWx0QGN5d2FyZS5jb20iLCJleHAiOjE3NjA5MTQzMjgsImZ1bGxfbmFtZSI6IlN5c3RlbSBEZWZhdWx0IiwidGVuYW50X2FwcHMiOlsicXVhcnRlcmJhY2siLCJjbyJdLCJ0ZW5hbnRfaWQiOiIwMUpDRDc4RDM3NDI0Q0tWSDIwMjZWTjNSNSIsInVzZXJfaWQiOiIwMUpDRDc4RDVYMDAwMDAwMDAwMDAwMDAwMCIsIndvcmtzcGFjZV9pZCI6IjAxSlFSRDAzOVM3MEFBREhNR0pCOUNNTkM3In0.QQqWpD0adn9vulcXBCLAK1iznhYw_pSKXKXUJNQTOrQhRyrx2ao_nnavmHfiPBTBQ2dyzap-lCwAtUCoGufy6T_zrcx2d4g466pGx8IfUOEYr8qUCDDz3cYuq1OpkKVHqzsZcj8cHaMTJScVBmXSnwoGZThW6pUCBITRrsWJYOY",
+                    "origin": "https://cpqa.qa-mt.cywareqa.com",
+                    "referer": "https://cpqa.qa-mt.cywareqa.com/mfa/quarterback/",
                     "sku": 0,
                 },
                 body: JSON.stringify({
                     "name": userMessage,
                 }),
+                credentials: 'include', // This includes cookies in the request
             });
             if (!response.ok) {
                 console.error("Error creating session:", response.statusText);
@@ -181,13 +292,20 @@ export default function Body() {
             // Use provided session ID or fall back to state
             const activeSessionId = sid || sessionId;
             
-            const response = await fetch(`http://localhost:2319/v1/session/join/${activeSessionId}/`, {
+            const response = await fetch(`https://cpqa.qa-mt.cywareqa.com/qb/v1/session/join/${activeSessionId}/`, {
                 method: "GET",
                 headers: {
-                    "sku": 0,
-                    // In a real implementation, you would include the auth token
-                    // "Cookie": `cycp=${AUTH_TOKEN};`,
-                }
+                    "accept": "text/event-stream",
+                    "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
+                    "cache-control": "no-cache",
+                    "priority": "u=1, i",
+                    "sec-fetch-dest": "empty",
+                    "sec-fetch-mode": "cors",
+                    "sec-fetch-site": "same-origin",
+                    "referer": `https://cpqa.qa-mt.cywareqa.com/mfa/quarterback/?id=${activeSessionId}`,
+                    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
+                },
+                credentials: 'include', // This includes cookies in the request
             });
 
             if (!response.ok) {
@@ -265,6 +383,29 @@ export default function Body() {
             }
         }
         console.log("Response data:", response);
+        
+        // Helper function to check if a string is likely markdown
+        const isMarkdown = (text) => {
+            if (!text) return false;
+            
+            // Check for common markdown patterns
+            const markdownPatterns = [
+                /^#+\s+.+$/m,                    // Headers
+                /^[-*+]\s+.+$/m,                 // Lists
+                /^>\s+.+$/m,                     // Blockquotes
+                /`{1,3}[\s\S]*?`{1,3}/m,         // Code (inline or blocks)
+                /\[.+?\]\(.+?\)/m,               // Links
+                /^\|.+\|.+\|/m,                  // Tables
+                /^\s*?```[\s\S]*?```/m,          // Code blocks
+                /^\s*?~~~[\s\S]*?~~~/m,          // Code blocks (alternative)
+                /(\*\*|__).+?(\*\*|__)/m,        // Bold
+                /(\*|_).+?(\*|_)/m,              // Italic
+                /!\[.+?\]\(.+?\)/m               // Images
+            ];
+            
+            return markdownPatterns.some(pattern => pattern.test(text));
+        };
+        
         switch (event.event) {
             case 9: // prompt
                 // Handle prompt event
@@ -282,30 +423,42 @@ export default function Body() {
                 // addMessage("system", `Topic: ${event.data}`);
                 break;
             case 3: // ai answer
-                // Clear input field after sending the response back to the user
-                addMessage("ai", response);
-                setUserMessage("");
+                // The response is potentially in markdown format
+                // We'll pass it as is and the ReactMarkdown component will handle rendering
+                if (response) {
+                    console.log("Is markdown format:", isMarkdown(response));
+                    addMessage("ai", response);
+                    setUserMessage("");
+                }
                 break;
             default:
                 console.log("Unhandled event type:", event.ev_name);
         }
     };
 
-    const newPrompt = async (sid = null) => {
+    const newPrompt = async (sid = null, message = null) => {
         try {
             setIsLoading(true);
             // Use provided session ID or fall back to state
             const activeSessionId = sid || sessionId;
+            // Use provided message or fall back to state
+            const promptMessage = message || userMessage;
             
-            const response = await fetch(`http://localhost:2319/v1/session/prompt/`, {
+            const response = await fetch(`https://cpqa.qa-mt.cywareqa.com/qb/v1/session/prompt/`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
+                    "accept": "application/json",
+                    "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
+                    "authorization": "CYW eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJjc2FwX21lbWJlcl9wZXJtaXNzaW9uIjpudWxsLCJkZXZpY2VfaWQiOiIiLCJlbWFpbCI6InN5c3RlbS5kZWZhdWx0QGN5d2FyZS5jb20iLCJleHAiOjE3NjA5MTQzMjgsImZ1bGxfbmFtZSI6IlN5c3RlbSBEZWZhdWx0IiwidGVuYW50X2FwcHMiOlsicXVhcnRlcmJhY2siLCJjbyJdLCJ0ZW5hbnRfaWQiOiIwMUpDRDc4RDM3NDI0Q0tWSDIwMjZWTjNSNSIsInVzZXJfaWQiOiIwMUpDRDc4RDVYMDAwMDAwMDAwMDAwMDAwMCIsIndvcmtzcGFjZV9pZCI6IjAxSlFSRDAzOVM3MEFBREhNR0pCOUNNTkM3In0.QQqWpD0adn9vulcXBCLAK1iznhYw_pSKXKXUJNQTOrQhRyrx2ao_nnavmHfiPBTBQ2dyzap-lCwAtUCoGufy6T_zrcx2d4g466pGx8IfUOEYr8qUCDDz3cYuq1OpkKVHqzsZcj8cHaMTJScVBmXSnwoGZThW6pUCBITRrsWJYOY",
+                    "origin": "https://cpqa.qa-mt.cywareqa.com",
+                    "referer": "https://cpqa.qa-mt.cywareqa.com/mfa/quarterback/",
                     "sku": 0,
                 },
+                credentials: 'include', // This includes cookies in the request
                 body: JSON.stringify({
                     "session_id": activeSessionId,
-                    "text": userMessage,
+                    "text": promptMessage,
                     "type": 1,
                     //* Chat mode - 1
                     "prompt_mode": CHAT_MODE,
@@ -387,7 +540,37 @@ export default function Body() {
                                     : "bg-gray-300 text-gray-800 italic"
                                 }`}
                         >
-                            {message.text}
+                            {message.sender === "ai" ? (
+                                <div className="markdown-content">
+                                    <MarkdownErrorBoundary>
+                                        <ReactMarkdown 
+                                            rehypePlugins={[rehypeHighlight]} 
+                                            components={{
+                                                // Make links open in a new tab
+                                                a: ({ node, ...props }) => (
+                                                    <a 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        {...props} 
+                                                    />
+                                                ),
+                                                // Add custom styling for tables
+                                                table: ({ node, ...props }) => (
+                                                    <div className="table-container" style={{ overflowX: 'auto' }}>
+                                                        <table {...props} />
+                                                    </div>
+                                                )
+                                            }}
+                                            // Handle errors during markdown processing
+                                            remarkRehypeOptions={{ allowDangerousHtml: true }}
+                                        >
+                                            {message.text || ''}
+                                        </ReactMarkdown>
+                                    </MarkdownErrorBoundary>
+                                </div>
+                            ) : (
+                                message.text
+                            )}
                         </div>
                     </div>
                 ))}
