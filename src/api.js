@@ -1,3 +1,5 @@
+import { AUTH_TOKEN } from "./consts";
+
 // API service for handling AI requests
 export async function getAIResponse(text) {
   try {
@@ -28,36 +30,28 @@ export async function getAIResponse(text) {
 // Agent search API function
 export async function performAgentSearch(text) {
   try {
-    // const API_URL = "http://localhost:3000"; // Update this based on your actual API endpoint
-    // const res = await fetch(`${API_URL}/cursor/agent-search`, {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //     // "Authorization": `Bearer ${localStorage.getItem('authToken') || ''}`
-    //   },
-    //   body: JSON.stringify({
-    //     text,
-    //   }),
-    // });
+    const res = await fetch(`http://localhost:2319/v1/session/qbit/cursor/agent-search/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "accept": "application/json",
+        "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
+        "authorization": AUTH_TOKEN,
+        "origin": "http://localhost:5173",
+        "referer": "http://localhost:5173/",
+      },
+      body: JSON.stringify({
+        "query": text
+      }),
+      credentials: 'include', // This includes cookies in the request
+    });
 
-    // if (!res.ok) {
-    //   throw new Error(`Failed to fetch agent search response: ${res.status}`);
-    // }
+    if (!res.ok) {
+      throw new Error(`Failed to fetch agent search response: ${res.status}`);
+    }
 
-    // const data = await res.json();
-    // console.log("Agent search response:", data);
-
-    
-    // Fallback to dummy data if the API is not available
-    const data = {
-      message: "Agent search results for: " + text,
-      results: [
-        {
-          "agent_id": "01JV",
-          "agent_name": "Cyware Agent",
-        }
-      ],
-    };
+    const data = await res.json();
+    console.log("Agent search response:", data);
     return data;
   } catch (error) {
     console.error("Error calling agent search API:", error);
@@ -130,11 +124,11 @@ export async function getAllSessions() {
     // Fallback to dummy data if the API is not available
     const data = {
       sessions: [
-        { id: 1, name: "Dataset Analysis", date: "2025-05-20", description: "Analysis of customer behavior dataset" },
-        { id: 2, name: "Text Summary", date: "2025-05-21", description: "Summarized quarterly report" },
-        { id: 3, name: "Code Generation", date: "2025-05-22", description: "Generated React components for dashboard" },
-        { id: 4, name: "Marketing Campaign", date: "2025-05-15", description: "Analyzed marketing campaign results" },
-        { id: 5, name: "Financial Report", date: "2025-05-10", description: "Summarized financial reports for Q1" },
+        { id: 1, name: "Understanding Denial of Service (DoS) Attacks", date: "2025-05-20", description: "Analysis of customer behavior dataset" },
+        { id: 2, name: "IP Enrichment Query", date: "2025-05-21", description: "Summarized quarterly report" },
+        { id: 3, name: "General Security Chat", date: "2025-05-22", description: "Generated React components for dashboard" },
+        { id: 4, name: "Explain DDoS Attack", date: "2025-05-15", description: "Analyzed marketing campaign results" },
+        { id: 5, name: "IP Address Query", date: "2025-05-10", description: "Summarized financial reports for Q1" },
         { id: 6, name: "Product Research", date: "2025-04-28", description: "Research on competitor products" },
         { id: 7, name: "Document Translation", date: "2025-04-25", description: "Translated product manual to Spanish" },
         { id: 8, name: "API Documentation", date: "2025-04-20", description: "Generated documentation for REST API" },

@@ -6,6 +6,7 @@ import { getAIResponse } from "../api";
 import { MODEL, VENDOR, CHAT_MODE, SAVED_AGENT_MODE, AUTH_TOKEN } from "../consts";
 import '../highlight.css';
 import MarkdownErrorBoundary from './MarkdownErrorBoundary';
+import AppTile from './AppTile';
 
 // Define a style for the welcome message animation
 const fadeInAnimation = `
@@ -15,6 +16,17 @@ const fadeInAnimation = `
 }
 .animate-fade-in {
   animation: fadeIn 0.6s ease-out;
+}
+
+/* App Tiles Grid Styling */
+.app-tile {
+  min-height: 80px;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.app-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* Markdown content styles */
@@ -141,6 +153,11 @@ export default function Body() {
     const [sessionId, setSessionId] = useState("");
     // State to store the title of the session
     const [sessionTitle, setSessionTitle] = useState("");
+    
+    // New states for handling skill clash and actions
+    const [availableActions, setAvailableActions] = useState([]);
+    const [showSkillClash, setShowSkillClash] = useState(false);
+    const [currentOffset, setCurrentOffset] = useState(0);
 
     useEffect(() => {
         // Function to get the selected text from Chrome extension
@@ -373,9 +390,105 @@ export default function Body() {
         }
     };
 
+    // Function to handle continue API call when user selects an action
+    const continueWithAction = async (selectedAction, actionOffset) => {
+        try {
+            setIsLoading(true);
+            
+            const response = await fetch(`https://cpqa.qa-mt.cywareqa.com/qb/v1/session/continue/`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "accept": "application/json",
+                    "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
+                    "authorization": "CYW eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJjc2FwX21lbWJlcl9wZXJtaXNzaW9uIjpudWxsLCJkZXZpY2VfaWQiOiIiLCJlbWFpbCI6InN5c3RlbS5kZWZhdWx0QGN5d2FyZS5jb20iLCJleHAiOjE3NjA5MTQzMjgsImZ1bGxfbmFtZSI6IlN5c3RlbSBEZWZhdWx0IiwidGVuYW50X2FwcHMiOlsicXVhcnRlcmJhY2siLCJjbyJdLCJ0ZW5hbnRfaWQiOiIwMUpDRDc4RDM3NDI0Q0tWSDIwMjZWTjNSNSIsInVzZXJfaWQiOiIwMUpDRDc4RDVYMDAwMDAwMDAwMDAwMDAwMCIsIndvcmtzcGFjZV9pZCI6IjAxSlFSRDAzOVM3MEFBREhNR0pCOUNNTkM3In0.QQqWpD0adn9vulcXBCLAK1iznhYw_pSKXKXUJNQTOrQhRyrx2ao_nnavmHfiPBTBQ2dyzap-lCwAtUCoGufy6T_zrcx2d4g466pGx8IfUOEYr8qUCDDz3cYuq1OpkKVHqzsZcj8cHaMTJScVBmXSnwoGZThW6pUCBITRrsWJYOY",
+                    "origin": "https://cpqa.qa-mt.cywareqa.com",
+                    "referer": `https://cpqa.qa-mt.cywareqa.com/mfa/quarterback/?id=${sessionId}`,
+                    "sku": 0,
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    "session_id": sessionId,
+                    "offset": currentOffset,
+                    "action_offset": actionOffset,
+                    "consent": true
+                })
+            });
+
+            if (!response.ok) {
+                // More detailed error handling based on status codes
+                let errorMessage = "Sorry, there was an error processing your selection.";
+                
+                switch (response.status) {
+                    case 400:
+                        errorMessage = "Invalid request. Please try selecting a different action.";
+                        break;
+                    case 401:
+                        errorMessage = "Authentication failed. Please refresh and try again.";
+                        break;
+                    case 403:
+                        errorMessage = "You don't have permission to perform this action.";
+                        break;
+                    case 404:
+                        errorMessage = "Session not found. Please start a new conversation.";
+                        break;
+                    case 500:
+                        errorMessage = "Server error. Please try again later.";
+                        break;
+                    default:
+                        errorMessage = `Failed to continue with action: ${response.statusText}`;
+                }
+                
+                throw new Error(errorMessage);
+            }
+
+            console.log("Continue API call successful");
+            
+            // Hide skill clash UI after successful selection
+            setShowSkillClash(false);
+            setAvailableActions([]);
+            
+            // Add confirmation message
+            addMessage("system", `Selected: ${selectedAction.title || selectedAction.desc || 'Action'}. Processing...`);
+            
+        } catch (error) {
+            console.error("Error in continue API call:", error);
+            
+            // Show user-friendly error message
+            addMessage("system", error.message || "Sorry, there was an error processing your selection.");
+            
+            // Don't hide skill clash UI on error so user can try again
+            // setShowSkillClash(false);
+            // setAvailableActions([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Function to handle action selection from skill clash
+    const handleActionSelection = (selectedAction) => {
+        console.log("Action selected:", selectedAction);
+        
+        // Find the action offset (index in the actions array)
+        const actionOffset = availableActions.findIndex(action => action.appid === selectedAction.appid);
+        
+        if (actionOffset !== -1) {
+            // Make the continue API call
+            continueWithAction(selectedAction, actionOffset);
+        } else {
+            console.error("Could not find action offset for selected action");
+        }
+    };
+
     // Handle individual events
     const handleEvent = (event) => {
-        console.log("Received event:", event.ev_name);
+        console.log("Received event:", event.ev_name, "Event type:", event.event);
+        
+        // Update current offset for any event that has one
+        if (event.offset !== undefined) {
+            setCurrentOffset(event.offset);
+        }
+        
         let response = null;
         if(event.data) {
             if(event.data.data) {
@@ -423,16 +536,44 @@ export default function Body() {
                 // addMessage("system", `Topic: ${event.data}`);
                 break;
             case 3: // ai answer
-                // The response is potentially in markdown format
-                // We'll pass it as is and the ReactMarkdown component will handle rendering
-                if (response) {
+                // Check if this has multiple actions (skill clash scenario)
+                if (event.data && event.data.data && event.data.data.actions && event.data.data.actions.length > 1) {
+                    console.log("Multiple actions detected - skill clash scenario");
+                    setAvailableActions(event.data.data.actions);
+                    setShowSkillClash(true);
+                    
+                    // Show message about skill clash
+                    addMessage("ai", event.data.data.content || "I found multiple suitable actions. Please select one to proceed:");
+                } else if (response) {
+                    // Single response - handle normally
                     console.log("Is markdown format:", isMarkdown(response));
                     addMessage("ai", response);
                     setUserMessage("");
                 }
                 break;
+            case 15: // skill clash
+                console.log("Skill clash event detected");
+                // This event confirms the skill clash scenario
+                // The UI should already be showing app tiles if case 3 handled multiple actions
+                break;
+            case 7: // executing
+                console.log("Executing action:", event.action);
+                addMessage("system", "Executing selected action...");
+                break;
+            case 16: // co result
+                console.log("Action execution result:", event.data);
+                // Usually this doesn't need to show anything to user
+                break;
+            case 8: // executed
+                console.log("Action executed successfully");
+                // addMessage("system", "Action completed.");
+                break;
+            case 17: // result summarizing
+                console.log("Summarizing results...");
+                addMessage("system", "Summarizing results...");
+                break;
             default:
-                console.log("Unhandled event type:", event.ev_name);
+                console.log("Unhandled event type:", event.ev_name, "Event:", event.event);
         }
     };
 
@@ -461,7 +602,7 @@ export default function Body() {
                     "text": promptMessage,
                     "type": 1,
                     //* Chat mode - 1
-                    "prompt_mode": CHAT_MODE,
+                    "prompt_mode": 2,
                     "vendor": VENDOR,
                     "model": MODEL,
                     "heat": "false",
@@ -588,6 +729,26 @@ export default function Body() {
                                     className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
                                     style={{ animationDelay: "0.4s" }}
                                 ></div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Skill Clash UI - App Tiles Selection */}
+                {showSkillClash && availableActions.length > 0 && (
+                    <div className="flex justify-start mb-4">
+                        <div className="bg-gray-100 p-4 rounded-lg rounded-bl-none max-w-[90%]">
+                            <div className="mb-3">
+                                <p className="text-sm font-medium text-gray-700 mb-2">Please select an app to proceed:</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                                {availableActions.map((action, index) => (
+                                    <AppTile
+                                        key={`${action.appid}-${index}`}
+                                        action={action}
+                                        onSelect={handleActionSelection}
+                                    />
+                                ))}
                             </div>
                         </div>
                     </div>
