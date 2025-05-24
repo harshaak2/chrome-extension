@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './LookupPopup.css';
-import { getAIResponse, performAgentSearch } from './api';
+import { getAIResponse, performAgentSearch, sendAgentPrompt } from './api';
 import AgentButton from './components/AgentButton';
 
 function LookupPopup() {
@@ -10,11 +10,46 @@ function LookupPopup() {
   const [fadeOut, setFadeOut] = useState(false);
   const [lookupResult, setLookupResult] = useState(null);
   const [isAgentSearch, setIsAgentSearch] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
+  const [agentLoading, setAgentLoading] = useState(false);
 
   // Function to handle closing the popup with animation
   const handleClose = () => {
     setFadeOut(true);
     setTimeout(() => window.close(), 150);
+  };
+
+  // Function to handle agent click
+  const handleAgentClick = async (agent) => {
+    try {
+      setAgentLoading(true);
+      setError(null);
+      console.log("Agent clicked:", agent);
+      
+      // Use the selected text and agent ID to make the API call
+      const response = await sendAgentPrompt(selectedText, agent.agent_id);
+      console.log("Agent prompt response:", response);
+      
+      // Extract session ID from response and display it to user
+      if (response && (response.session_id || response.sessionId)) {
+        const sessionId = response.session_id || response.sessionId;
+        setSessionId(sessionId);
+        console.log("Session ID extracted:", sessionId);
+      } else if (typeof response === 'string' && response.trim()) {
+        // Handle case where response is directly the session ID string
+        const sessionId = response.trim();
+        setSessionId(sessionId);
+        console.log("Raw session ID detected:", sessionId);
+      } else {
+        console.error("Session ID not found in response:", response);
+        setError("Session ID not found in response");
+      }
+    } catch (error) {
+      console.error("Error executing agent:", error);
+      setError(error.message);
+    } finally {
+      setAgentLoading(false);
+    }
   };
 
   // Function to fetch agent search results
@@ -186,9 +221,58 @@ function LookupPopup() {
                               className="result-item"
                               style={{ '--animation-order': index }}
                             >
-                              <AgentButton agent={result}>{result.agent_name}</AgentButton>
+                              <AgentButton 
+                                agent={result} 
+                                onClick={() => handleAgentClick(result)}
+                                loading={agentLoading}
+                              >
+                                {result.agent_name}
+                              </AgentButton>
                             </div>
                           ))}
+                        </div>
+                      )}
+                      {agentLoading && (
+                        <div className="ai-message mt-2">
+                          <div className="loading">
+                            <div className="spinner"></div>
+                            <div>Processing with agent...</div>
+                          </div>
+                        </div>
+                      )}
+                      {sessionId && (
+                        <div className="ai-message mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                          <div className="text-sm font-medium text-green-800 mb-3 flex items-center">
+                            ✅ Agent session created successfully!
+                          </div>
+                          <div className="text-xs text-green-700 mb-3">
+                            <strong>Session ID:</strong> 
+                            <div className="mt-1 p-2 bg-green-100 rounded border font-mono text-xs break-all">
+                              {sessionId}
+                            </div>
+                          </div>
+                          <div className="flex gap-2 text-xs">
+                            <a 
+                              href={`https://cpqa.qa-mt.cywareqa.com/mfa/quarterback/?id=${sessionId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium"
+                            >
+                              🔗 Open Session
+                              <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
+                            </a>
+                            <button 
+                              onClick={() => {
+                                navigator.clipboard.writeText(sessionId);
+                                // Optional: Show a temporary "Copied!" message
+                              }}
+                              className="inline-flex items-center px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors font-medium"
+                            >
+                              📋 Copy ID
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>

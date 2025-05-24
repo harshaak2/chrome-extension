@@ -30,20 +30,27 @@ export async function getAIResponse(text) {
 // Agent search API function
 export async function performAgentSearch(text) {
   try {
-    const res = await fetch(`http://localhost:2319/v1/session/qbit/cursor/agent-search/`, {
-      method: "POST",
+    const res = await fetch(`https://cpqa.qa-mt.cywareqa.com/qb/v1/session/qbit/cursor/agent-search/`, {
+      method: "PUT",
       headers: {
-        "Content-Type": "application/json",
         "accept": "application/json",
         "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
-        "authorization": AUTH_TOKEN,
-        "origin": "http://localhost:5173",
-        "referer": "http://localhost:5173/",
+        "content-type": "application/json",
+        "origin": "https://cpqa.qa-mt.cywareqa.com",
+        "authorization": "CYW eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJjc2FwX21lbWJlcl9wZXJtaXNzaW9uIjpudWxsLCJkZXZpY2VfaWQiOiIiLCJlbWFpbCI6InN5c3RlbS5kZWZhdWx0QGN5d2FyZS5jb20iLCJleHAiOjE3NjA5MTQzMjgsImZ1bGxfbmFtZSI6IlN5c3RlbSBEZWZhdWx0IiwidGVuYW50X2FwcHMiOlsicXVhcnRlcmJhY2siLCJjbyJdLCJ0ZW5hbnRfaWQiOiIwMUpDRDc4RDM3NDI0Q0tWSDIwMjZWTjNSNSIsInVzZXJfaWQiOiIwMUpDRDc4RDVYMDAwMDAwMDAwMDAwMDAwMCIsIndvcmtzcGFjZV9pZCI6IjAxSlFSRDAzOVM3MEFBREhNR0pCOUNNTkM3In0.QQqWpD0adn9vulcXBCLAK1iznhYw_pSKXKXUJNQTOrQhRyrx2ao_nnavmHfiPBTBQ2dyzap-lCwAtUCoGufy6T_zrcx2d4g466pGx8IfUOEYr8qUCDDz3cYuq1OpkKVHqzsZcj8cHaMTJScVBmXSnwoGZThW6pUCBITRrsWJYOY",
+        "priority": "u=1, i",
+        "referer": "https://cpqa.qa-mt.cywareqa.com/mfa/quarterback/",
+        "sec-ch-ua": '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
       },
       body: JSON.stringify({
         "query": text
       }),
-      credentials: 'include', // This includes cookies in the request
     });
 
     if (!res.ok) {
@@ -52,7 +59,13 @@ export async function performAgentSearch(text) {
 
     const data = await res.json();
     console.log("Agent search response:", data);
-    return data;
+    
+    // Handle the response format with agents array
+    if (data.agents && Array.isArray(data.agents)) {
+      return { results: data.agents };
+    }
+    
+    return { results: [] };
   } catch (error) {
     console.error("Error calling agent search API:", error);
     throw new Error("Failed to process with agent search: " + error.message);
@@ -143,5 +156,82 @@ export async function getAllSessions() {
   } catch (error) {
     console.error("Error fetching session list:", error);
     throw new Error("Failed to fetch session list: " + error.message);
+  }
+}
+
+// Agent prompt API function for handling agent selection
+export async function sendAgentPrompt(text, agentId) {
+  try {
+    console.log("Sending agent prompt with:", { text, agentId });
+    
+    const requestBody = {
+      "text": text,
+      "agent_id": agentId,
+      "type": 1,
+      "topic": 0,
+      "prompt_mode": 6,
+      "vendor": "openai",
+      "model": "gpt-4o",
+      "heat": "false"
+    };
+    
+    console.log("Request body:", requestBody);
+    
+    const res = await fetch(`https://cpqa.qa-mt.cywareqa.com/qb/v1/session/qbit/prompt/ctix`, {
+      method: "PUT",
+      headers: {
+        "accept": "application/json",
+        "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
+        "content-type": "application/json",
+        "origin": "https://cpqa.qa-mt.cywareqa.com",
+        "authorization": "CYW eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJjc2FwX21lbWJlcl9wZXJtaXNzaW9uIjpudWxsLCJkZXZpY2VfaWQiOiIiLCJlbWFpbCI6InN5c3RlbS5kZWZhdWx0QGN5d2FyZS5jb20iLCJleHAiOjE3NjA5MTQzMjgsImZ1bGxfbmFtZSI6IlN5c3RlbSBEZWZhdWx0IiwidGVuYW50X2FwcHMiOlsicXVhcnRlcmJhY2siLCJjbyJdLCJ0ZW5hbnRfaWQiOiIwMUpDRDc4RDM3NDI0Q0tWSDIwMjZWTjNSNSIsInVzZXJfaWQiOiIwMUpDRDc4RDVYMDAwMDAwMDAwMDAwMDAwMCIsIndvcmtzcGFjZV9pZCI6IjAxSlFSRDAzOVM3MEFBREhNR0pCOUNNTkM3In0.QQqWpD0adn9vulcXBCLAK1iznhYw_pSKXKXUJNQTOrQhRyrx2ao_nnavmHfiPBTBQ2dyzap-lCwAtUCoGufy6T_zrcx2d4g466pGx8IfUOEYr8qUCDDz3cYuq1OpkKVHqzsZcj8cHaMTJScVBmXSnwoGZThW6pUCBITRrsWJYOY",
+        "priority": "u=1, i",
+        "referer": "https://cpqa.qa-mt.cywareqa.com/mfa/quarterback/",
+        "sec-ch-ua": '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error("Agent prompt API error response:", errorText);
+      throw new Error(`Failed to send agent prompt: ${res.status} - ${errorText}`);
+    }
+
+    // Get the response as text first to check if it's valid JSON
+    const responseText = await res.text();
+    console.log("Agent prompt raw response:", responseText);
+    
+    // Check if the response is a raw session ID (just a string) or JSON
+    try {
+      const data = responseText;
+      console.log("Agent prompt parsed response:", data);
+      return data;
+    } catch (jsonError) {
+      // If JSON parsing fails, check if it's a raw session ID string
+      console.log("Response is not JSON, checking if it's a raw session ID");
+      
+      // Remove any quotes or whitespace that might be around the session ID
+      const cleanedResponse = responseText.trim().replace(/^["']|["']$/g, '');
+      
+      // Check if it looks like a session ID (alphanumeric string)
+      if (cleanedResponse && /^[A-Z0-9]{20,}$/i.test(cleanedResponse)) {
+        console.log("Detected raw session ID:", cleanedResponse);
+        return { session_id: cleanedResponse };
+      }
+      
+      console.error("Failed to parse JSON response:", jsonError);
+      console.error("Raw response was:", responseText);
+      throw new Error(`Invalid response from server. Expected JSON or session ID, got: ${responseText}`);
+    }
+  } catch (error) {
+    console.error("Error calling agent prompt API:", error);
+    throw new Error("Failed to process agent prompt: " + error.message);
   }
 }
