@@ -185,8 +185,14 @@ export default function Body() {
                         addMessage("user", response.selectedText);
                         // Set hasInteracted to true since content was selected
                         setHasInteracted(true);
-                        // Send to AI for processing
-                        processWithAI(response.selectedText);
+                        // Auto-send the selected text for processing
+                        setUserMessage(response.selectedText);
+                        // Automatically trigger the chat flow
+                        setTimeout(() => {
+                            if (response.selectedText.trim()) {
+                                handleChat();
+                            }
+                        }, 100);
                     }
                         }
                     );
@@ -222,37 +228,46 @@ export default function Body() {
     const handleChat = async () => {
         if (!userMessage.trim()) return; // Don't send empty messages
 
-        // Set hasInteracted to true to hide the welcome message
-        setHasInteracted(true);
-        
-        // Add user message to chat - no need to parse as markdown here as it's user input
-        addMessage("user", userMessage);
+        try {
+            // Set loading state at the beginning
+            setIsLoading(true);
+            
+            // Set hasInteracted to true to hide the welcome message
+            setHasInteracted(true);
+            
+            // Add user message to chat - no need to parse as markdown here as it's user input
+            addMessage("user", userMessage);
 
-        // Clear input field
-        const currentMessage = userMessage;
-        setUserMessage("");
+            // Clear input field
+            const currentMessage = userMessage;
+            setUserMessage("");
 
-        // 1. make a POST request to new session API - returns session id
-        const newSessionId = await getSessionId();
-        if (!newSessionId) {
-            console.error("Session ID not found");
-            return;
+            // 1. make a POST request to new session API - returns session id
+            const newSessionId = await getSessionId(currentMessage);
+            if (!newSessionId) {
+                console.error("Session ID not found");
+                return;
+            }
+            
+            // Update the state with the new session ID
+            setSessionId(newSessionId);
+            console.log(`Session ID: ${newSessionId}`);
+
+            // 2. make a GET request to the join API which keeps streaming events throughout the session
+            joinSession(newSessionId);
+
+            // 3. make a POST request to the prompt API with the session id and the user message and prompt mode
+            await newPrompt(newSessionId, currentMessage);
+        } catch (error) {
+            console.error("Error in chat flow:", error);
+            addMessage("system", "Sorry, there was an error processing your request.");
+            setIsLoading(false);
         }
-        
-        // Update the state with the new session ID
-        setSessionId(newSessionId);
-        console.log(`Session ID: ${newSessionId}`);
-
-        // 2. make a GET request to the join API which keeps streaming events throughout the session
-        joinSession(newSessionId);
-
-        // 3. make a POST request to the prompt API with the session id and the user message and prompt mode
-        await newPrompt(newSessionId, currentMessage);
     };
 
-    const getSessionId = async () => {
+    const getSessionId = async (message) => {
         try {
-            setIsLoading(true);
+            // Don't set loading here since it's already set in handleChat
             // response gives a status code of 201 with session id as a string
             const response = await fetch("https://cpqa.qa-mt.cywareqa.com/qb/v1/session/ctix/", {
                 method: "POST",
@@ -266,7 +281,7 @@ export default function Body() {
                     "sku": 0,
                 },
                 body: JSON.stringify({
-                    "name": userMessage,
+                    "name": message,
                 }),
                 credentials: 'include', // This includes cookies in the request
             });
@@ -293,10 +308,8 @@ export default function Body() {
                 "system",
                 "Sorry, there was an error creating a new session."
             );
-            return null;
-        }
-        finally {
             setIsLoading(false);
+            return null;
         }
     };
 
@@ -305,7 +318,7 @@ export default function Body() {
     // consider null if no value is passed
     const joinSession = async (sid = null) => {
         try {
-            setIsLoading(true);
+            // Don't set loading here since it's already managed by handleChat
             // Use provided session ID or fall back to state
             const activeSessionId = sid || sessionId;
             
@@ -342,7 +355,10 @@ export default function Body() {
                     const { value, done } = await reader.read();
                     if (done) {
                         console.log("Stream completed");
-                        setIsLoading(false);
+                        // Only set loading to false if no skill clash is active
+                        if (!showSkillClash) {
+                            setIsLoading(false);
+                        }
                         break;
                     }
 
@@ -451,17 +467,21 @@ export default function Body() {
             // Add confirmation message
             addMessage("system", `Selected: ${selectedAction.title || selectedAction.desc || 'Action'}. Processing...`);
             
+            // The streaming should continue automatically through the existing joinSession connection
+            // Loading state will be managed by the stream events
+            
         } catch (error) {
             console.error("Error in continue API call:", error);
             
             // Show user-friendly error message
             addMessage("system", error.message || "Sorry, there was an error processing your selection.");
             
+            // Turn off loading on error
+            setIsLoading(false);
+            
             // Don't hide skill clash UI on error so user can try again
             // setShowSkillClash(false);
             // setAvailableActions([]);
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -527,7 +547,7 @@ export default function Body() {
             case 10: // analyzing
                 // Show analyzing status
                 console.log("Analyzing request...");
-                // addMessage("system", "Analyzing your request...");
+                addMessage("system", "Analyzing your request...");
                 break;
             case 5: // title changed
                 // Update title or show it
@@ -544,11 +564,14 @@ export default function Body() {
                     
                     // Show message about skill clash
                     addMessage("ai", event.data.data.content || "I found multiple suitable actions. Please select one to proceed:");
+                    
+                    // Don't turn off loading yet since user needs to select an action
                 } else if (response) {
-                    // Single response - handle normally
+                    // Single response - handle normally and turn off loading
                     console.log("Is markdown format:", isMarkdown(response));
                     addMessage("ai", response);
                     setUserMessage("");
+                    setIsLoading(false);
                 }
                 break;
             case 15: // skill clash
@@ -579,7 +602,7 @@ export default function Body() {
 
     const newPrompt = async (sid = null, message = null) => {
         try {
-            setIsLoading(true);
+            // Don't set loading here since it's already managed by handleChat
             // Use provided session ID or fall back to state
             const activeSessionId = sid || sessionId;
             // Use provided message or fall back to state
@@ -619,8 +642,6 @@ export default function Body() {
                 "system",
                 "Sorry, there was an error sending your prompt."
             );
-        }
-        finally {
             setIsLoading(false);
         }
     };
