@@ -25,7 +25,7 @@ const FileUploadPopup = () => {
       // Submit on Enter key (regardless of file selection)
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        handleSubmit();
+        handleSubmit().catch(console.error);
       }
     };
 
@@ -67,7 +67,7 @@ const FileUploadPopup = () => {
   };
 
   // Handle form submission
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (files.length === 0) {
       setError("Please upload at least one file first");
       // Focus the file upload button to guide the user
@@ -78,30 +78,86 @@ const FileUploadPopup = () => {
     // Start upload process
     setUploadStatus("uploading");
     setUploadProgress(0);
+    setError(""); // Clear any previous errors
     
-    // Simulate upload progress
-    const totalTime = 2000; // 2 seconds total upload time
-    const interval = 50; // Update every 50ms
-    const incrementStep = interval / totalTime * 100;
-    
-    const progressInterval = setInterval(() => {
-      setUploadProgress(prev => {
-        const newProgress = prev + incrementStep;
-        if (newProgress >= 100) {
-          clearInterval(progressInterval);
-          
-          // Once upload is complete
-          console.log("Files:", files);
-          console.log("Context:", context);
-          
-          // Show success state without closing
-          setUploadStatus("success");
-          
-          return 100;
+    try {
+      const uploadedFiles = [];
+      
+      // Upload each file individually
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Update progress based on file being processed
+        setUploadProgress((i / files.length) * 90); // Reserve 10% for final processing
+        
+        // Create FormData for multipart/form-data
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // If context is provided, add it as well
+        if (context.trim()) {
+          formData.append('context', context);
         }
-        return newProgress;
-      });
-    }, interval);
+        
+        // Make the API call
+        const response = await fetch('https://cpqa.qa-mt.cywareqa.com/cpapi/rest-auth/upload-file/', {
+          method: 'POST',
+          headers: {
+            'accept': 'application/json, text/plain, */*',
+            'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
+            'authorization': 'CYW eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJjc2FwX21lbWJlcl9wZXJtaXNzaW9uIjpudWxsLCJkZXZpY2VfaWQiOiIiLCJlbWFpbCI6InN5c3RlbS5kZWZhdWx0QGN5d2FyZS5jb20iLCJleHAiOjE3NjA5MTQzMjgsImZ1bGxfbmFtZSI6IlN5c3RlbSBEZWZhdWx0IiwidGVuYW50X2FwcHMiOlsicXVhcnRlcmJhY2siLCJjbyJdLCJ0ZW5hbnRfaWQiOiIwMUpDRDc4RDM3NDI0Q0tWSDIwMjZWTjNSNSIsInVzZXJfaWQiOiIwMUpDRDc4RDVYMDAwMDAwMDAwMDAwMDAwMCIsIndvcmtzcGFjZV9pZCI6IjAxSlFSRDAzOVM3MEFBREhNR0pCOUNNTkM3In0.QQqWpD0adn9vulcXBCLAK1iznhYw_pSKXKXUJNQTOrQhRyrx2ao_nnavmHfiPBTBQ2dyzap-lCwAtUCoGufy6T_zrcx2d4g466pGx8IfUOEYr8qUCDDz3cYuq1OpkKVHqzsZcj8cHaMTJScVBmXSnwoGZThW6pUCBITRrsWJYOY',
+            'cache-control': 'no-cache',
+            'origin': 'https://cpqa.qa-mt.cywareqa.com',
+            'pragma': 'no-cache',
+            'priority': 'u=1, i',
+            'referer': 'https://cpqa.qa-mt.cywareqa.com/cp/profile/my-profile',
+            'sec-ch-ua': '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"macOS"',
+            'sec-fetch-dest': 'empty',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-site': 'same-origin',
+            'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
+          },
+          body: formData
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Upload failed for ${file.name}: ${response.status} ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        // Store the file info with its fileKey
+        uploadedFiles.push({
+          fileName: file.name,
+          fileKey: result.fileKey || result.file_key || result.key, // Handle different possible response formats
+          originalFile: file,
+          response: result
+        });
+        
+        console.log(`Uploaded ${file.name}:`, result);
+      }
+      
+      // Final progress update
+      setUploadProgress(100);
+      
+      // Log all uploaded files
+      console.log("All files uploaded successfully:", uploadedFiles);
+      console.log("Context:", context);
+      
+      // Show success state
+      setUploadStatus("success");
+      
+      // Return the uploaded files data for potential use by parent components
+      return uploadedFiles;
+      
+    } catch (error) {
+      console.error("Upload error:", error);
+      setError(`Upload failed: ${error.message}`);
+      setUploadStatus("idle");
+      setUploadProgress(0);
+    }
   };
 
   // Return a compact Spotlight-like interface
@@ -128,7 +184,7 @@ const FileUploadPopup = () => {
             // Always handle Enter for submission (not just when files are selected)
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              handleSubmit();
+              handleSubmit().catch(console.error);
             }
           }}
           className={`w-[450px] h-10 py-2 px-4 text-sm bg-transparent text-gray-800 dark:text-white focus:outline-none resize-none overflow-hidden scrollbar-hide transition-all ${
