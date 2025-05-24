@@ -11,7 +11,8 @@
         margin: 0;
         padding: 0;
         overflow: hidden;
-        background-color: #ffffff;
+        background-color: rgba(0, 0, 0, 0.2);
+        backdrop-filter: blur(15px);
         font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Helvetica Neue', sans-serif;
       }
       #root {
@@ -27,7 +28,30 @@
         font-size: 16px;
         color: #555;
       }
+      
+      /* Hide scrollbars */
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      
+      .scrollbar-hide {
+        -ms-overflow-style: none;  /* IE and Edge */
+        scrollbar-width: none;  /* Firefox */
+      }
     </style>
+    <script>
+      // Set initial window size
+      window.addEventListener('DOMContentLoaded', () => {
+        if (window.chrome && window.chrome.windows && window.chrome.windows.getCurrent && window.chrome.windows.update) {
+          window.chrome.windows.getCurrent((win) => {
+            window.chrome.windows.update(win.id, {
+              width: 580,
+              height: 150
+            });
+          });
+        }
+      });
+    </script>
   </head>
   <body>
     <div id="root">
