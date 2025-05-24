@@ -49,6 +49,12 @@
         "mac": "Command+J"
       },
       "description": "Open QB it lookup popup at cursor"
+    },
+    "file_upload_popup": {
+      "suggested_key": {
+        "mac": "Command+K"
+      },
+      "description": "Open QBit File Parser popup"
     }
   }
 }

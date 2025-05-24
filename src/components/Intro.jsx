@@ -19,7 +19,7 @@ export default function Intro() {
                 className="text-2xl font-bold text-center text-[#4123d8] !important font-mono"
                 style={{ color: "#4123d8" }}
             >
-                Quarterback AI
+                Quarterback
             </motion.h1>
             <motion.span
                 initial="hidden"

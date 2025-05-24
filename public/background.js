@@ -20,6 +20,13 @@ function createContextMenu() {
     title: "Add To Chat",
     contexts: ["selection"], // only appears when text is selected
   });
+  
+  // Add "Upload to QBit" context menu option
+  chrome.contextMenus.create({
+    id: "uploadToQBit",
+    title: "Upload to QBit",
+    contexts: ["page"], // appears on all pages
+  });
 }
 
 // Store selected text for lookup popup
@@ -41,6 +48,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 chrome.commands.onCommand.addListener((command) => {
   if (command === "open_lookup_popup") {
     openLookupPopup();
+  } else if (command === "file_upload_popup") {
+    // Open the file upload popup
+    chrome.windows.create({
+      url: chrome.runtime.getURL("/fileupload.html"),
+      type: "popup",
+      width: 600,
+      height: 600
+    });
   }
 });
 
@@ -61,6 +76,17 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       // Open the popup
       chrome.action.openPopup();
     }
+  } else if (info.menuItemId === "uploadToQBit") {
+    // Handle Upload to QBit context menu option
+    console.log("Upload to QBit context menu option clicked");
+    
+    // Open the file upload popup with the correct path
+    chrome.windows.create({
+      url: chrome.runtime.getURL("/fileupload.html"),
+      type: "popup",
+      width: 600,
+      height: 600
+    });
   }
 });
 

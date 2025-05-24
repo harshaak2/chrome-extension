@@ -4,6 +4,7 @@ import './index.css'
 import Popup from './Popup.jsx'
 import Options from './Options.jsx'
 import LookupPopup from './LookupPopup.jsx'
+import FileUploadPopup from './components/FileUploadPopup.jsx'
 
 // Determine which component to render based on the current HTML file
 const renderComponent = () => {
@@ -16,6 +17,8 @@ const renderComponent = () => {
     return <Options />;
   } else if (pathname.includes('lookup.html')) {
     return <LookupPopup />;
+  } else if (pathname.includes('fileupload.html')) {
+    return <FileUploadPopup />;
   } else {
     // Default fallback
     console.log('No matching component found, falling back to Popup');

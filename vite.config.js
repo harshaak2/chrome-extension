@@ -15,6 +15,7 @@ export default defineConfig({
         popup: resolve(__dirname, 'popup.html'),
         options: resolve(__dirname, 'options.html'),
         lookup: resolve(__dirname, 'lookup.html'),
+        fileupload: resolve(__dirname, 'fileupload.html'),
       },
       output: {
         entryFileNames: 'assets/[name].js',
