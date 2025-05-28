@@ -257,6 +257,7 @@ function LookupPopup() {
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium"
+                              style={{color: 'white'}}
                             >
                               🔗 Open Session
                               <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">

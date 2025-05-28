@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { IconUpload, IconX, IconCheck, IconLoader2 } from "@tabler/icons-react";
+import AgentButton from "./AgentButton";
+import { sendAgentPrompt } from "../api";
+import { AUTH_TOKEN } from "../consts";
 
 const FileUploadPopup = () => {
   const [isOpen, setIsOpen] = useState(true);
@@ -9,6 +12,9 @@ const FileUploadPopup = () => {
   const [error, setError] = useState("");
   const [uploadStatus, setUploadStatus] = useState("idle"); // idle, uploading, success
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [agents, setAgents] = useState([]);
+  const [loadingAgents, setLoadingAgents] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
   const fileInputRef = useRef(null);
 
   const [isTextareaFocused, setIsTextareaFocused] = useState(false);
@@ -33,12 +39,12 @@ const FileUploadPopup = () => {
     window.addEventListener("keydown", handleKeyDown);
     
     // Resize window to fit content
-    // Set a small initial size for the window
+    // Set a larger size for the window to accommodate agents display
     if (window.chrome && window.chrome.windows && window.chrome.windows.getCurrent && window.chrome.windows.update) {
       window.chrome.windows.getCurrent((win) => {
         window.chrome.windows.update(win.id, {
-          width: 580,
-          height: 150 // Keep it compact since we don't show the file list anymore
+          width: 800,
+          height: agents.length > 0 ? 500 : 250 // Dynamic height based on agents
         });
       });
     }
@@ -46,7 +52,7 @@ const FileUploadPopup = () => {
     console.log("FileUploadPopup component mounted");
     
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, files.length]);
+  }, [isOpen, files.length, agents.length]); // Added agents.length to dependencies
 
   // Handle file upload
   const handleFileChange = (e) => {
@@ -68,6 +74,12 @@ const FileUploadPopup = () => {
 
   // Handle form submission
   const handleSubmit = async () => {
+    // Make context mandatory
+    if (!context.trim()) {
+      setError("Please enter a description or context for the files");
+      return;
+    }
+    
     if (files.length === 0) {
       setError("Please upload at least one file first");
       // Focus the file upload button to guide the user
@@ -87,8 +99,8 @@ const FileUploadPopup = () => {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         
-        // Update progress based on file being processed
-        setUploadProgress((i / files.length) * 90); // Reserve 10% for final processing
+        // Update progress based on file being processed (first 70% for file uploads)
+        setUploadProgress((i / files.length) * 70);
         
         // Create FormData for multipart/form-data
         const formData = new FormData();
@@ -105,7 +117,7 @@ const FileUploadPopup = () => {
           headers: {
             'accept': 'application/json, text/plain, */*',
             'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
-            'authorization': 'CYW eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJjc2FwX21lbWJlcl9wZXJtaXNzaW9uIjpudWxsLCJkZXZpY2VfaWQiOiIiLCJlbWFpbCI6InN5c3RlbS5kZWZhdWx0QGN5d2FyZS5jb20iLCJleHAiOjE3NjA5MTQzMjgsImZ1bGxfbmFtZSI6IlN5c3RlbSBEZWZhdWx0IiwidGVuYW50X2FwcHMiOlsicXVhcnRlcmJhY2siLCJjbyJdLCJ0ZW5hbnRfaWQiOiIwMUpDRDc4RDM3NDI0Q0tWSDIwMjZWTjNSNSIsInVzZXJfaWQiOiIwMUpDRDc4RDVYMDAwMDAwMDAwMDAwMDAwMCIsIndvcmtzcGFjZV9pZCI6IjAxSlFSRDAzOVM3MEFBREhNR0pCOUNNTkM3In0.QQqWpD0adn9vulcXBCLAK1iznhYw_pSKXKXUJNQTOrQhRyrx2ao_nnavmHfiPBTBQ2dyzap-lCwAtUCoGufy6T_zrcx2d4g466pGx8IfUOEYr8qUCDDz3cYuq1OpkKVHqzsZcj8cHaMTJScVBmXSnwoGZThW6pUCBITRrsWJYOY',
+            'authorization': `CYW ${AUTH_TOKEN}`,
             'cache-control': 'no-cache',
             'origin': 'https://cpqa.qa-mt.cywareqa.com',
             'pragma': 'no-cache',
@@ -139,6 +151,50 @@ const FileUploadPopup = () => {
         console.log(`Uploaded ${file.name}:`, result);
       }
       
+      // Files uploaded, now make the agent search API call (20% progress)
+      setUploadProgress(80);
+      
+      // Making agent search API call
+      const agentSearchResponse = await fetch('https://cpqa.qa-mt.cywareqa.com/qb/v1/session/qbit/file-proc/agent-search/', {
+        method: 'PUT',
+        headers: {
+          'accept': 'application/json',
+          'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
+          'content-type': 'application/json',
+          'origin': 'https://cpqa.qa-mt.cywareqa.com',
+          'authorization': `CYW ${AUTH_TOKEN}`,
+          'priority': 'u=1, i',
+          'referer': 'https://cpqa.qa-mt.cywareqa.com/mfa/quarterback/',
+          'sec-ch-ua': '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"',
+          'sec-ch-ua-mobile': '?0',
+          'sec-ch-ua-platform': '"macOS"',
+          'sec-fetch-dest': 'empty',
+          'sec-fetch-mode': 'cors',
+          'sec-fetch-site': 'same-origin',
+          'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
+        },
+        body: JSON.stringify({
+          query: context.trim()
+        })
+      });
+      
+      if (!agentSearchResponse.ok) {
+        throw new Error(`Agent search failed: ${agentSearchResponse.status} ${agentSearchResponse.statusText}`);
+      }
+      
+      const agentSearchResult = await agentSearchResponse.json();
+      console.log("Agent search result:", agentSearchResult);
+      
+      // Set agents from the API response
+      if (agentSearchResult.agents && Array.isArray(agentSearchResult.agents)) {
+        setAgents(agentSearchResult.agents);
+      } else if (agentSearchResult.data && Array.isArray(agentSearchResult.data)) {
+        setAgents(agentSearchResult.data);
+      } else {
+        // Handle different possible response formats
+        setAgents(agentSearchResult.results || agentSearchResult.items || []);
+      }
+      
       // Final progress update
       setUploadProgress(100);
       
@@ -160,9 +216,122 @@ const FileUploadPopup = () => {
     }
   };
 
+  // Handle agent selection
+  const handleAgentSelect = async (agent) => {
+    setLoadingAgents(true);
+    setError(""); // Clear any previous errors
+    console.log("Selected agent:", agent);
+    
+    try {
+      // Use the sendAgentPrompt API (same as lookup functionality)
+      const response = await sendAgentPrompt(context.trim(), agent.agent_id);
+      console.log("Agent prompt response:", response);
+      
+      // Extract session ID from response and display it to user
+      if (response && (response.session_id || response.sessionId)) {
+        const extractedSessionId = response.session_id || response.sessionId;
+        setSessionId(extractedSessionId);
+        console.log("Session ID extracted:", extractedSessionId);
+      } else if (typeof response === 'string' && response.trim()) {
+        // Handle case where response is directly the session ID string
+        const extractedSessionId = response.trim();
+        setSessionId(extractedSessionId);
+        console.log("Raw session ID detected:", extractedSessionId);
+      } else {
+        console.error("Session ID not found in response:", response);
+        setError("Session ID not found in response");
+      }
+      
+      console.log(`Processing files with agent: ${agent.agent_name || agent.name}`);
+      
+    } catch (error) {
+      console.error("Agent selection error:", error);
+      setError(`Failed to select agent: ${error.message}`);
+    } finally {
+      setLoadingAgents(false);
+    }
+  };
+
   // Return a compact Spotlight-like interface
   return (
-    <div className="fixed inset-0 flex items-center justify-center">
+    <div className="fixed inset-0 flex flex-col items-center justify-center p-4">
+      {/* Agents display section - positioned above the spotlight */}
+      <AnimatePresence>
+        {agents.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="bg-white/95 dark:bg-neutral-800/95 rounded-lg shadow-xl p-6 min-w-[600px] max-w-[750px] mb-6"
+          >
+            <div className="mb-4">
+              <h3 className="text-base font-medium text-gray-800 dark:text-white" style={{color: "white"}}>
+                File Processing Agents
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Select an agent to process your uploaded files with the provided context
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3 max-h-40 overflow-y-auto">
+              {agents.map((agent, index) => (
+                <AgentButton
+                  key={agent.id || index}
+                  agent={agent}
+                  loading={loadingAgents}
+                  onClick={() => handleAgentSelect(agent)}
+                />
+              ))}
+            </div>
+            
+            {/* Session ID display */}
+            {sessionId && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg"
+              >
+                <div className="text-sm font-medium text-green-800 mb-3 flex items-center">
+                  ✅ Agent session created successfully!
+                </div>
+                <div className="text-xs text-green-700 mb-3">
+                  <strong>Session ID:</strong> 
+                  <div className="mt-1 p-2 bg-green-100 rounded border font-mono text-xs break-all">
+                    {sessionId}
+                  </div>
+                </div>
+                <div className="flex gap-2 text-xs">
+                  <a 
+                    href={`https://cpqa.qa-mt.cywareqa.com/mfa/quarterback/?id=${sessionId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium"
+                    style={{color: 'white'}}
+                  >
+                    🔗 Open Session
+                    <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-1M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                  <button
+                    onClick={() => {
+                      setSessionId(null);
+                      setAgents([]);
+                      setFiles([]);
+                      setContext("");
+                      setUploadStatus("idle");
+                    }}
+                    className="inline-flex items-center px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors font-medium"
+                  >
+                    🔄 Process More Files
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Main spotlight component */}
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -187,10 +356,10 @@ const FileUploadPopup = () => {
               handleSubmit().catch(console.error);
             }
           }}
-          className={`w-[450px] h-10 py-2 px-4 text-sm bg-transparent text-gray-800 dark:text-white focus:outline-none resize-none overflow-hidden scrollbar-hide transition-all ${
+          className={`w-[600px] h-10 py-2 px-4 text-sm bg-transparent text-gray-800 dark:text-white focus:outline-none resize-none overflow-hidden scrollbar-hide transition-all ${
             isTextareaFocused ? "border-b border-blue-500" : ""
-          }`}
-          placeholder="Add context about the files you're uploading..."
+          } ${!context.trim() ? "border-b border-red-300" : ""}`}
+          placeholder="Add context about the files you're uploading... (Required)"
         ></textarea>
         
         {/* Separator */}
@@ -297,7 +466,7 @@ const FileUploadPopup = () => {
       
       {/* Toast notification for success */}
       <AnimatePresence>
-        {uploadStatus === "success" && (
+        {uploadStatus === "success" && !sessionId && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -305,19 +474,22 @@ const FileUploadPopup = () => {
             className="absolute bottom-4 p-2 bg-white/90 text-green-700 rounded-md text-sm flex items-center shadow-xl"
           >
             <IconCheck className="h-4 w-4 mr-2" />
-            Files uploaded successfully! Press ESC to close this window.
+            {agents.length > 0 
+              ? "Files uploaded successfully! Select an agent above to process them."
+              : "Files uploaded successfully! Press ESC to close this window."
+            }
           </motion.div>
         )}
       </AnimatePresence>
       
       {/* File details (shown as a tooltip-like element when hovering over the file count) */}
-      {files.length > 0 && uploadStatus === "idle" && (
-        <div className="absolute top-[60px] right-[90px] bg-white/90 dark:bg-neutral-800 rounded-lg shadow-xl p-2 text-xs text-neutral-600 dark:text-neutral-300">
-          <div className="font-medium mb-1">{files.length} {files.length === 1 ? 'file' : 'files'} selected</div>
-          <div className="max-h-[80px] overflow-y-auto scrollbar-hide">
+      {files.length > 0 && uploadStatus === "idle" && !sessionId && (
+        <div className="absolute top-[70px] right-[120px] bg-white/90 dark:bg-neutral-800 rounded-lg shadow-xl p-3 text-xs text-neutral-600 dark:text-neutral-300">
+          <div className="font-medium mb-2">{files.length} {files.length === 1 ? 'file' : 'files'} selected</div>
+          <div className="max-h-[100px] overflow-y-auto scrollbar-hide">
             {files.map((file, index) => (
               <div key={index} className="flex items-center py-1">
-                <span className="truncate max-w-[200px]">{file.name}</span>
+                <span className="truncate max-w-[250px]">{file.name}</span>
                 <span className="ml-2 text-neutral-400">({(file.size / 1024).toFixed(1)} KB)</span>
               </div>
             ))}
